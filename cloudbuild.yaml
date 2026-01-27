@@ -3,10 +3,6 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
-      - '--build-arg'
-      - 'NEXT_PUBLIC_API_URL=https://profmatchapi-912048666815.us-central1.run.app'
-      - '--build-arg'
-      - 'NEXT_PUBLIC_USE_MOCK=false'
       - '-t'
       - 'gcr.io/build-with-vertex-ai/profmatch-fe:$COMMIT_SHA'
       - '-t'
