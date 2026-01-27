@@ -28,6 +28,12 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
+# Set runtime environment variables (inherited from build args)
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_USE_MOCK
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_USE_MOCK=$NEXT_PUBLIC_USE_MOCK
+
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
