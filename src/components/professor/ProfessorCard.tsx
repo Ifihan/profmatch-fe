@@ -12,16 +12,20 @@ export function ProfessorCard({ match, onViewProfile }: ProfessorCardProps) {
     match;
 
   return (
-    <article className="flex flex-col rounded-lg border border-border bg-background p-6">
+    <article className="flex flex-col rounded-lg border border-border bg-background p-6 transition-all duration-200 hover:-translate-y-1 hover:border-primary/30 hover:shadow-lg">
       <div className="mb-4 flex items-start justify-between">
         <div>
           <h2 className="text-lg font-semibold text-text-primary">
             {professor.name}
           </h2>
           <p className="text-sm text-text-secondary">{professor.title}</p>
-          <p className="text-sm text-text-secondary">
-            {professor.department}, {professor.university}
-          </p>
+          {(professor.department || professor.university || professor.email) && (
+            <p className="text-sm text-text-secondary">
+              {[professor.department, professor.university, professor.email]
+                .filter(Boolean)
+                .join(", ")}
+            </p>
+          )}
         </div>
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10">
           <span className="text-sm font-semibold text-primary">
@@ -49,13 +53,25 @@ export function ProfessorCard({ match, onViewProfile }: ProfessorCardProps) {
 
       {relevant_publications.length > 0 && (
         <div className="mb-4">
-          <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-text-muted">
+          <h3 className="mb-2 text-xs font-medium tracking-wide text-text-muted">
             Relevant Publications
           </h3>
           <ul className="space-y-1">
             {relevant_publications.slice(0, 2).map((pub, idx) => (
               <li key={idx} className="text-sm text-text-secondary">
-                <span className="text-text-primary">{pub.title}</span>
+                {pub.url ? (
+                  <a
+                    href={pub.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:text-primary-light hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {pub.title}
+                  </a>
+                ) : (
+                  <span className="text-text-primary">{pub.title}</span>
+                )}
                 <span className="text-text-muted">
                   {" "}
                   ({pub.year})

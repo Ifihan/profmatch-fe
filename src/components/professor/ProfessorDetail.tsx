@@ -11,7 +11,13 @@ interface ProfessorDetailProps {
 }
 
 export function ProfessorDetail({ match, onClose }: ProfessorDetailProps) {
-  const { professor, match_score, alignment_reasons, shared_keywords } = match;
+  const {
+    professor,
+    match_score,
+    alignment_reasons,
+    shared_keywords,
+    relevant_publications,
+  } = match;
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -51,7 +57,9 @@ export function ProfessorDetail({ match, onClose }: ProfessorDetailProps) {
               {professor.name}
             </h2>
             <p className="text-sm text-text-secondary">
-              {professor.title} &middot; {professor.department}
+              {[professor.title, professor.department, professor.university]
+                .filter(Boolean)
+                .join(" \u00B7 ")}
             </p>
           </div>
           <div className="flex items-center gap-4">
@@ -222,7 +230,43 @@ export function ProfessorDetail({ match, onClose }: ProfessorDetailProps) {
             </div>
           )}
 
-          {/* Publications */}
+          {/* Relevant Publications */}
+          {relevant_publications.length > 0 && (
+            <div>
+              <h3 className="mb-3 text-sm font-medium text-text-primary">
+                Relevant Publications
+              </h3>
+              <ul className="space-y-4">
+                {relevant_publications.map((pub, idx) => (
+                  <li key={idx} className="border-l-2 border-primary/40 pl-4">
+                    {pub.url ? (
+                      <a
+                        href={pub.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-primary hover:text-primary-light hover:underline"
+                      >
+                        {pub.title}
+                      </a>
+                    ) : (
+                      <p className="font-medium text-text-primary">
+                        {pub.title}
+                      </p>
+                    )}
+                    <p className="mt-1 text-sm text-text-secondary">
+                      {pub.authors.join(", ")}
+                    </p>
+                    <p className="mt-1 text-sm text-text-muted">
+                      {pub.venue} &middot; {pub.year} &middot;{" "}
+                      {pub.citation_count} citations
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Recent Publications */}
           {professor.publications.length > 0 && (
             <div>
               <h3 className="mb-3 text-sm font-medium text-text-primary">
@@ -231,7 +275,20 @@ export function ProfessorDetail({ match, onClose }: ProfessorDetailProps) {
               <ul className="space-y-4">
                 {professor.publications.map((pub, idx) => (
                   <li key={idx} className="border-l-2 border-border pl-4">
-                    <p className="font-medium text-text-primary">{pub.title}</p>
+                    {pub.url ? (
+                      <a
+                        href={pub.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-primary hover:text-primary-light hover:underline"
+                      >
+                        {pub.title}
+                      </a>
+                    ) : (
+                      <p className="font-medium text-text-primary">
+                        {pub.title}
+                      </p>
+                    )}
                     <p className="mt-1 text-sm text-text-secondary">
                       {pub.authors.join(", ")}
                     </p>
