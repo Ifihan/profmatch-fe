@@ -8,16 +8,16 @@ export default function NotFound() {
       <Container className="flex min-h-[70vh] flex-col items-center justify-center py-12">
         <div className="text-center">
           {/* 4 [book] 4 */}
-          <div className="mb-8 flex items-center justify-center gap-2 md:gap-4">
+          <div className="mb-8 flex items-center justify-center gap-0 md:gap-1">
             <span className="text-[6rem] font-bold leading-none tracking-tighter text-primary md:text-[10rem]">
               4
             </span>
             <svg
-              className="h-20 w-20 text-primary md:h-32 md:w-32"
+              className="h-24 w-24 text-primary md:h-40 md:w-40"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
-              strokeWidth={1.2}
+              strokeWidth={2.5}
               aria-hidden="true"
             >
               <path
