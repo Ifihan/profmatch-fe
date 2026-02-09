@@ -96,3 +96,29 @@ export interface MatchFormData {
   research_interests: string[];
   files: File[];
 }
+
+// Auth Types
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  createdAt: string;
+}
+
+export interface AuthState {
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+}
+
+// Saved Search Types
+export interface SavedSearch {
+  id: string;
+  userId: string;
+  university: string;
+  researchInterests: string[];
+  resumeFileName: string;
+  results: MatchResult[];
+  createdAt: string;
+  name: string;
+}

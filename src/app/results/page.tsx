@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { PageLayout, Container } from "@/components/layout";
-import { Button, SkeletonResultsGrid } from "@/components/ui";
+import { Button, Input, Modal, SkeletonResultsGrid } from "@/components/ui";
 import { ProfessorCard, ProfessorDetail } from "@/components/professor";
 import { exportResults } from "@/lib/export";
+import { useAuth } from "@/context";
+import { useSavedSearches } from "@/hooks";
 import type { MatchResult } from "@/types";
 
 interface ResultsData {
@@ -14,14 +17,32 @@ interface ResultsData {
   results: MatchResult[];
 }
 
+interface MatchData {
+  university: string;
+  researchInterests: string[];
+  resumeFileName?: string;
+}
+
 export default function ResultsPage() {
   const router = useRouter();
+  const { isAuthenticated } = useAuth();
+  const { saveSearch } = useSavedSearches();
+
   const [results, setResults] = useState<ResultsData | null>(null);
+  const [matchData, setMatchData] = useState<MatchData | null>(null);
   const [selectedMatch, setSelectedMatch] = useState<MatchResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Save modal state
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [searchName, setSearchName] = useState("");
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [isSaved, setIsSaved] = useState(false);
+
   useEffect(() => {
     const storedResults = sessionStorage.getItem("matchResults");
+    const storedMatchData = sessionStorage.getItem("matchData");
+
     if (!storedResults) {
       router.replace("/");
       return;
@@ -29,12 +50,69 @@ export default function ResultsPage() {
 
     try {
       setResults(JSON.parse(storedResults));
+      if (storedMatchData) {
+        const parsed = JSON.parse(storedMatchData);
+        setMatchData({
+          university: parsed.university || "",
+          researchInterests: parsed.researchInterests || [],
+          resumeFileName: parsed.resumeFileName || "resume.pdf",
+        });
+      }
     } catch {
       router.replace("/");
     } finally {
       setIsLoading(false);
     }
   }, [router]);
+
+  const handleSave = () => {
+    if (!searchName.trim()) {
+      setSaveError("Please enter a name for this search");
+      return;
+    }
+
+    if (!results || !matchData) {
+      setSaveError("Search data not available");
+      return;
+    }
+
+    const saved = saveSearch({
+      name: searchName.trim(),
+      university: matchData.university,
+      researchInterests: matchData.researchInterests,
+      resumeFileName: matchData.resumeFileName || "resume.pdf",
+      results: results.results,
+    });
+
+    if (saved) {
+      setIsSaved(true);
+      setShowSaveModal(false);
+      setSearchName("");
+      setSaveError(null);
+    } else {
+      setSaveError("Failed to save search. Please try again.");
+    }
+  };
+
+  const openSaveModal = () => {
+    // Generate a default name based on the university
+    const getUniversityName = (url: string) => {
+      try {
+        const hostname = new URL(url).hostname;
+        return hostname.replace("www.", "").split(".")[0];
+      } catch {
+        return "Search";
+      }
+    };
+
+    const defaultName = matchData
+      ? `${getUniversityName(matchData.university)} - ${new Date().toLocaleDateString()}`
+      : `Search - ${new Date().toLocaleDateString()}`;
+
+    setSearchName(defaultName);
+    setSaveError(null);
+    setShowSaveModal(true);
+  };
 
   if (isLoading) {
     return (
@@ -81,7 +159,65 @@ export default function ResultsPage() {
             </p>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            {isAuthenticated ? (
+              isSaved ? (
+                <Link href="/dashboard">
+                  <Button variant="outline" size="sm">
+                    <svg
+                      className="mr-1 h-4 w-4 text-success"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                    Saved - View Dashboard
+                  </Button>
+                </Link>
+              ) : (
+                <Button variant="outline" size="sm" onClick={openSaveModal}>
+                  <svg
+                    className="mr-1 h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                    />
+                  </svg>
+                  Save Search
+                </Button>
+              )
+            ) : (
+              <Link href="/login">
+                <Button variant="outline" size="sm">
+                  <svg
+                    className="mr-1 h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                    />
+                  </svg>
+                  Sign in to Save
+                </Button>
+              </Link>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -148,6 +284,42 @@ export default function ResultsPage() {
           onClose={() => setSelectedMatch(null)}
         />
       )}
+
+      {/* Save Search Modal */}
+      <Modal
+        isOpen={showSaveModal}
+        onClose={() => setShowSaveModal(false)}
+        title="Save Search"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-text-secondary">
+            Save this search to your dashboard so you can access these results later.
+          </p>
+
+          {saveError && (
+            <div className="rounded-md bg-error/10 p-3 text-sm text-error">
+              {saveError}
+            </div>
+          )}
+
+          <Input
+            label="Search Name"
+            placeholder="e.g., MIT Machine Learning Search"
+            value={searchName}
+            onChange={(e) => setSearchName(e.target.value)}
+          />
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowSaveModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSave}>Save Search</Button>
+          </div>
+        </div>
+      </Modal>
     </PageLayout>
   );
 }

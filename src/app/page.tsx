@@ -71,6 +71,8 @@ export default function Home() {
         .map((s) => s.trim())
         .filter(Boolean);
 
+      const resumeFileName = files[0]?.file.name || "resume.pdf";
+
       if (USE_MOCK_DATA) {
         // Demo mode: skip API calls, store form data and navigate
         sessionStorage.setItem(
@@ -80,6 +82,7 @@ export default function Home() {
             matchId: "mock-match",
             university,
             researchInterests: interests,
+            resumeFileName,
           })
         );
 
@@ -110,6 +113,7 @@ export default function Home() {
             matchId,
             university,
             researchInterests: interests,
+            resumeFileName,
           })
         );
 
