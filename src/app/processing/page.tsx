@@ -167,6 +167,7 @@ function getMockResults() {
             year: 2024,
             venue: "NeurIPS",
             citation_count: 45,
+            url: "https://example.com/paper/transformer-medical-imaging",
           },
           {
             title: "Self-Supervised Learning for Radiology",
@@ -174,6 +175,7 @@ function getMockResults() {
             year: 2023,
             venue: "CVPR",
             citation_count: 128,
+            url: "https://example.com/paper/self-supervised-radiology",
           },
         ],
         citation_metrics: {
@@ -195,6 +197,7 @@ function getMockResults() {
           year: 2024,
           venue: "NeurIPS",
           citation_count: 45,
+          url: "https://example.com/paper/transformer-medical-imaging",
         },
       ],
       shared_keywords: ["machine learning", "computer vision", "transformers"],
@@ -217,6 +220,7 @@ function getMockResults() {
             year: 2024,
             venue: "ICML",
             citation_count: 89,
+            url: "https://example.com/paper/llm-scientific-discovery",
           },
         ],
         citation_metrics: {
@@ -237,6 +241,7 @@ function getMockResults() {
           year: 2024,
           venue: "ICML",
           citation_count: 89,
+          url: "https://example.com/paper/llm-scientific-discovery",
         },
       ],
       shared_keywords: ["NLP", "machine learning"],
