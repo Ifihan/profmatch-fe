@@ -79,11 +79,16 @@ export function exportToMarkdown(matches: MatchResult[]): string {
 // ── LaTeX Export ─────────────────────────────────────────────────
 
 function escapeLatex(text: string): string {
+  // Use a safer approach: replace special chars with placeholders first,
+  // then replace backslashes, then restore placeholders
   return text
-    .replace(/\\/g, "\\textbackslash{}")
+    .replace(/\\/g, "TEXBACKSLASH")
+    .replace(/~/g, "TEXTILDE")
+    .replace(/\^/g, "TEXCARET")
     .replace(/([&%$#_{}])/g, "\\$1")
-    .replace(/~/g, "\\textasciitilde{}")
-    .replace(/\^/g, "\\textasciicircum{}");
+    .replace(/TEXBACKSLASH/g, "\\textbackslash{}")
+    .replace(/TEXTILDE/g, "\\textasciitilde{}")
+    .replace(/TEXCARET/g, "\\textasciicircum{}");
 }
 
 export function exportToLatex(matches: MatchResult[]): string {
