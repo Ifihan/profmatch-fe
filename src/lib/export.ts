@@ -78,17 +78,25 @@ export function exportToMarkdown(matches: MatchResult[]): string {
 
 // ── LaTeX Export ─────────────────────────────────────────────────
 
+const LATEX_ESCAPE_MAP: Record<string, string> = {
+  "\\": "\\textbackslash{}",
+  "&": "\\&",
+  "%": "\\%",
+  $: "\\$",
+  "#": "\\#",
+  _: "\\_",
+  "{": "\\{",
+  "}": "\\}",
+  "~": "\\textasciitilde{}",
+  "^": "\\textasciicircum{}",
+};
+
+const LATEX_SPECIAL_CHARS = /[\\&%$#_{}\~\^]/g;
+
 function escapeLatex(text: string): string {
-  // Use a safer approach: replace special chars with placeholders first,
-  // then replace backslashes, then restore placeholders
-  return text
-    .replace(/\\/g, "TEXBACKSLASH")
-    .replace(/~/g, "TEXTILDE")
-    .replace(/\^/g, "TEXCARET")
-    .replace(/([&%$#_{}])/g, "\\$1")
-    .replace(/TEXBACKSLASH/g, "\\textbackslash{}")
-    .replace(/TEXTILDE/g, "\\textasciitilde{}")
-    .replace(/TEXCARET/g, "\\textasciicircum{}");
+  // Single-pass replacement using a character map to avoid
+  // chained .replace() calls that can miss or double-escape characters
+  return text.replace(LATEX_SPECIAL_CHARS, (char) => LATEX_ESCAPE_MAP[char]);
 }
 
 export function exportToLatex(matches: MatchResult[]): string {
