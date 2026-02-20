@@ -17,6 +17,7 @@ export function ProfessorDetail({ match, onClose }: ProfessorDetailProps) {
     alignment_reasons,
     shared_keywords,
     relevant_publications,
+    recommendation_text,
   } = match;
 
   const handleKeyDown = useCallback(
@@ -176,6 +177,16 @@ export function ProfessorDetail({ match, onClose }: ProfessorDetailProps) {
                   </span>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Recommendation */}
+          {recommendation_text && (
+            <div>
+              <h3 className="mb-2 text-sm font-medium text-text-primary">
+                Recommendation
+              </h3>
+              <p className="text-sm text-text-secondary">{recommendation_text}</p>
             </div>
           )}
 
