@@ -103,6 +103,7 @@ export interface User {
   email: string;
   name: string;
   created_at: string;
+  search_credits?: SearchCredits;
 }
 
 export interface AuthResponse {
@@ -116,6 +117,37 @@ export interface AuthState {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+}
+
+// Credits Types
+export interface SearchCredits {
+  balance: number;
+  next_free_credit_at: string | null;
+}
+
+export interface CreditUsage {
+  match_id: string;
+  university: string;
+  created_at: string;
+}
+
+export interface CreditsResponse {
+  balance: number;
+  next_free_credit_at: string | null;
+  usage_history: CreditUsage[];
+}
+
+export interface CreditPlan {
+  id: string;
+  name: string;
+  credits: number;
+  price_usd: number;
+  available: boolean;
+}
+
+export interface PlansResponse {
+  plans: CreditPlan[];
+  message: string;
 }
 
 // Search History Types
