@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { PageLayout, Container } from "@/components/layout";
 import { Button, SkeletonResultsGrid } from "@/components/ui";
 import { ProfessorCard, ProfessorDetail } from "@/components/professor";
 import { exportResults } from "@/lib/export";
+import { useAuth } from "@/context";
 import type { MatchResult } from "@/types";
 
 interface ResultsData {
@@ -16,12 +18,15 @@ interface ResultsData {
 
 export default function ResultsPage() {
   const router = useRouter();
+  const { isAuthenticated } = useAuth();
+
   const [results, setResults] = useState<ResultsData | null>(null);
   const [selectedMatch, setSelectedMatch] = useState<MatchResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const storedResults = sessionStorage.getItem("matchResults");
+
     if (!storedResults) {
       router.replace("/");
       return;
@@ -81,7 +86,46 @@ export default function ResultsPage() {
             </p>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            {isAuthenticated ? (
+              <Link href="/dashboard">
+                <Button variant="outline" size="sm">
+                  <svg
+                    className="mr-1 h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                    />
+                  </svg>
+                  View in Dashboard
+                </Button>
+              </Link>
+            ) : (
+              <Link href="/register">
+                <Button variant="outline" size="sm">
+                  <svg
+                    className="mr-1 h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                    />
+                  </svg>
+                  Sign up to Save
+                </Button>
+              </Link>
+            )}
             <Button
               variant="outline"
               size="sm"

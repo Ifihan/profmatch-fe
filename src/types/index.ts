@@ -96,3 +96,44 @@ export interface MatchFormData {
   research_interests: string[];
   files: File[];
 }
+
+// Auth Types
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  created_at: string;
+}
+
+export interface AuthResponse {
+  user: User;
+  access_token: string;
+  token_type: string;
+}
+
+export interface AuthState {
+  user: User | null;
+  token: string | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+}
+
+// Search History Types
+export interface SearchHistorySummary {
+  id: string;
+  match_id: string;
+  university: string;
+  research_interests: string[];
+  result_count: number;
+  created_at: string;
+}
+
+export interface SearchHistoryDetail {
+  id: string;
+  match_id: string;
+  university: string;
+  research_interests: string[];
+  results: MatchResult[];
+  total_time: number | null;
+  created_at: string;
+}
