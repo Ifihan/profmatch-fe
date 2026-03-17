@@ -44,8 +44,8 @@ export function AuthForm({ mode, onSubmit, error }: AuthFormProps) {
 
     if (!password) {
       errors.password = "Password is required";
-    } else if (!isLogin && password.length < 6) {
-      errors.password = "Password must be at least 6 characters";
+    } else if (!isLogin && password.length < 8) {
+      errors.password = "Password must be at least 8 characters";
     }
 
     if (!isLogin && password !== confirmPassword) {
@@ -91,9 +91,9 @@ export function AuthForm({ mode, onSubmit, error }: AuthFormProps) {
 
         {!isLogin && (
           <Input
-            label="Full Name"
+            label="Name"
             type="text"
-            placeholder="Enter your full name"
+            placeholder="Enter your name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             error={validationErrors.name}
@@ -131,6 +131,17 @@ export function AuthForm({ mode, onSubmit, error }: AuthFormProps) {
             error={validationErrors.confirmPassword}
             disabled={isLoading}
           />
+        )}
+
+        {isLogin && (
+          <div className="text-right">
+            <Link
+              href="/forgot-password"
+              className="text-sm text-primary hover:text-primary-light"
+            >
+              Forgot your password?
+            </Link>
+          </div>
         )}
 
         <Button type="submit" size="lg" className="w-full" isLoading={isLoading}>

@@ -4,6 +4,10 @@ import type {
   MatchStatus,
   MatchResultsResponse,
   ProfessorProfile,
+  AuthResponse,
+  User,
+  SearchHistorySummary,
+  SearchHistoryDetail,
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -40,15 +44,83 @@ async function fetchApi<T>(
   return response.json();
 }
 
+function authHeaders(token: string): HeadersInit {
+  return { Authorization: `Bearer ${token}` };
+}
+
+// ── Auth endpoints ────────────────────────────────────────────────
+
+export async function signup(
+  email: string,
+  password: string,
+  name: string,
+  sessionId?: string
+): Promise<AuthResponse> {
+  return fetchApi<AuthResponse>("/api/auth/signup", {
+    method: "POST",
+    body: JSON.stringify({ email, password, name, session_id: sessionId }),
+  });
+}
+
+export async function login(
+  email: string,
+  password: string,
+  sessionId?: string
+): Promise<AuthResponse> {
+  return fetchApi<AuthResponse>("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password, session_id: sessionId }),
+  });
+}
+
+export async function forgotPassword(email: string): Promise<{ message: string }> {
+  return fetchApi<{ message: string }>("/api/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function resetPassword(
+  token: string,
+  newPassword: string
+): Promise<{ message: string }> {
+  return fetchApi<{ message: string }>("/api/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ token, new_password: newPassword }),
+  });
+}
+
+export async function getMe(token: string): Promise<User> {
+  return fetchApi<User>("/api/auth/me", {
+    headers: authHeaders(token),
+  });
+}
+
+export async function listSearches(token: string): Promise<SearchHistorySummary[]> {
+  return fetchApi<SearchHistorySummary[]>("/api/auth/me/searches", {
+    headers: authHeaders(token),
+  });
+}
+
+export async function getSearchDetail(
+  token: string,
+  searchId: string
+): Promise<SearchHistoryDetail> {
+  return fetchApi<SearchHistoryDetail>(`/api/auth/me/searches/${searchId}`, {
+    headers: authHeaders(token),
+  });
+}
+
 // Health check
 export async function healthCheck(): Promise<{ status: string }> {
   return fetchApi<{ status: string }>("/health");
 }
 
 // Session endpoints
-export async function createSession(): Promise<SessionResponse> {
+export async function createSession(token?: string): Promise<SessionResponse> {
   return fetchApi<SessionResponse>("/api/session", {
     method: "POST",
+    ...(token ? { headers: authHeaders(token) } : {}),
   });
 }
 
@@ -104,7 +176,8 @@ export async function startMatch(
   sessionId: string,
   university: string,
   researchInterests: string[],
-  fileIds: string[]
+  fileIds: string[],
+  token?: string
 ): Promise<{ match_id: string }> {
   return fetchApi<{ match_id: string }>("/api/match", {
     method: "POST",
@@ -114,6 +187,7 @@ export async function startMatch(
       research_interests: researchInterests,
       file_ids: fileIds,
     }),
+    ...(token ? { headers: authHeaders(token) } : {}),
   });
 }
 

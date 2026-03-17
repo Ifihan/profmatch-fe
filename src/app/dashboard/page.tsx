@@ -9,13 +9,12 @@ import { SavedSearchCard } from "@/components/dashboard";
 import { useAuth } from "@/context";
 import { useSavedSearches } from "@/hooks";
 
-type SortOption = "newest" | "oldest" | "most_matches" | "name_asc";
+type SortOption = "newest" | "oldest" | "most_matches";
 
 export default function DashboardPage() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
-  const { searches, isLoading: searchesLoading, deleteSearch } = useSavedSearches();
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const { searches, isLoading: searchesLoading } = useSavedSearches();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("newest");
 
@@ -32,8 +31,8 @@ export default function DashboardPage() {
             }
           })();
           return (
-            s.name.toLowerCase().includes(query) ||
-            universityName.toLowerCase().includes(query)
+            universityName.toLowerCase().includes(query) ||
+            s.research_interests.some((i) => i.toLowerCase().includes(query))
           );
         })
       : searches;
@@ -41,13 +40,11 @@ export default function DashboardPage() {
     return [...filtered].sort((a, b) => {
       switch (sortBy) {
         case "newest":
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
         case "oldest":
-          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
         case "most_matches":
-          return b.results.length - a.results.length;
-        case "name_asc":
-          return a.name.localeCompare(b.name);
+          return b.result_count - a.result_count;
         default:
           return 0;
       }
@@ -59,21 +56,6 @@ export default function DashboardPage() {
       router.replace("/login");
     }
   }, [isAuthenticated, authLoading, router]);
-
-  const handleDelete = (searchId: string) => {
-    if (deleteConfirm === searchId) {
-      deleteSearch(searchId);
-      setDeleteConfirm(null);
-    } else {
-      setDeleteConfirm(searchId);
-      // Auto-reset confirmation after 3 seconds
-      setTimeout(() => setDeleteConfirm(null), 3000);
-    }
-  };
-
-  const handleView = (searchId: string) => {
-    router.push(`/dashboard/${searchId}`);
-  };
 
   if (authLoading) {
     return (
@@ -154,7 +136,7 @@ export default function DashboardPage() {
               No saved searches yet
             </h2>
             <p className="mb-6 text-center text-text-secondary">
-              Start a new search and save the results to view them here
+              Start a new search and your results will appear here automatically
             </p>
             <Link href="/">
               <Button>Start Your First Search</Button>
@@ -179,7 +161,7 @@ export default function DashboardPage() {
                 </svg>
                 <input
                   type="text"
-                  placeholder="Search by name or university..."
+                  placeholder="Search by university or interest..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="h-10 w-full rounded-md border border-border bg-background pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted transition-colors duration-150 hover:border-secondary-light focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -194,7 +176,6 @@ export default function DashboardPage() {
                 <option value="newest">Newest first</option>
                 <option value="oldest">Oldest first</option>
                 <option value="most_matches">Most matches</option>
-                <option value="name_asc">Name (A-Z)</option>
               </select>
             </div>
 
@@ -210,8 +191,7 @@ export default function DashboardPage() {
                   <SavedSearchCard
                     key={search.id}
                     search={search}
-                    onView={() => handleView(search.id)}
-                    onDelete={() => handleDelete(search.id)}
+                    onView={() => router.push(`/dashboard/${search.id}`)}
                   />
                 ))}
               </div>

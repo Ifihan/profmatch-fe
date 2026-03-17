@@ -102,23 +102,38 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  createdAt: string;
+  created_at: string;
+}
+
+export interface AuthResponse {
+  user: User;
+  access_token: string;
+  token_type: string;
 }
 
 export interface AuthState {
   user: User | null;
+  token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
 }
 
-// Saved Search Types
-export interface SavedSearch {
+// Search History Types
+export interface SearchHistorySummary {
   id: string;
-  userId: string;
+  match_id: string;
   university: string;
-  researchInterests: string[];
-  resumeFileName: string;
+  research_interests: string[];
+  result_count: number;
+  created_at: string;
+}
+
+export interface SearchHistoryDetail {
+  id: string;
+  match_id: string;
+  university: string;
+  research_interests: string[];
   results: MatchResult[];
-  createdAt: string;
-  name: string;
+  total_time: number | null;
+  created_at: string;
 }

@@ -9,7 +9,7 @@ import { ProfessorCard, ProfessorDetail } from "@/components/professor";
 import { exportResults } from "@/lib/export";
 import { useAuth } from "@/context";
 import { useSavedSearches } from "@/hooks";
-import type { SavedSearch, MatchResult } from "@/types";
+import type { SearchHistoryDetail, MatchResult } from "@/types";
 
 export default function SavedSearchDetailPage() {
   const router = useRouter();
@@ -17,9 +17,10 @@ export default function SavedSearchDetailPage() {
   const searchId = params.id as string;
 
   const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const { getSearch, isLoading: searchesLoading } = useSavedSearches();
+  const { getSearch } = useSavedSearches();
 
-  const [search, setSearch] = useState<SavedSearch | null>(null);
+  const [search, setSearch] = useState<SearchHistoryDetail | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedMatch, setSelectedMatch] = useState<MatchResult | null>(null);
 
   useEffect(() => {
@@ -29,15 +30,18 @@ export default function SavedSearchDetailPage() {
   }, [isAuthenticated, authLoading, router]);
 
   useEffect(() => {
-    if (!searchesLoading && searchId) {
-      const found = getSearch(searchId);
-      setSearch(found);
+    if (!authLoading && isAuthenticated && searchId) {
+      getSearch(searchId)
+        .then((data) => {
+          setSearch(data);
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
     }
-  }, [searchId, searchesLoading, getSearch]);
+  }, [searchId, authLoading, isAuthenticated, getSearch]);
 
-  const isLoading = authLoading || searchesLoading;
-
-  if (isLoading) {
+  if (authLoading || isLoading) {
     return (
       <PageLayout>
         <Container className="py-12">
@@ -117,12 +121,11 @@ export default function SavedSearchDetailPage() {
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="mb-2 text-2xl font-semibold text-text-primary md:text-3xl">
-              {search.name}
+              {getUniversityName(search.university)}
             </h1>
             <p className="text-text-secondary">
               {search.results.length} match
-              {search.results.length !== 1 ? "es" : ""} from{" "}
-              {getUniversityName(search.university)}
+              {search.results.length !== 1 ? "es" : ""}
             </p>
           </div>
 
@@ -130,7 +133,7 @@ export default function SavedSearchDetailPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => exportResults(search.results, "csv")}
+              onClick={() => exportResults(search.results, "markdown")}
             >
               <svg
                 className="mr-1 h-4 w-4"
@@ -145,12 +148,12 @@ export default function SavedSearchDetailPage() {
                   d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
                 />
               </svg>
-              Export CSV
+              Markdown
             </Button>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => exportResults(search.results, "json")}
+              onClick={() => exportResults(search.results, "latex")}
             >
               <svg
                 className="mr-1 h-4 w-4"
@@ -165,7 +168,27 @@ export default function SavedSearchDetailPage() {
                   d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
                 />
               </svg>
-              Export JSON
+              LaTeX
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportResults(search.results, "pdf")}
+            >
+              <svg
+                className="mr-1 h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                />
+              </svg>
+              PDF
             </Button>
           </div>
         </div>
@@ -175,7 +198,7 @@ export default function SavedSearchDetailPage() {
           <h2 className="mb-4 text-sm font-medium tracking-wide text-text-muted">
             Search Details
           </h2>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <p className="mb-1 text-xs text-text-muted">University</p>
               <p className="text-sm text-text-primary">
@@ -183,13 +206,9 @@ export default function SavedSearchDetailPage() {
               </p>
             </div>
             <div>
-              <p className="mb-1 text-xs text-text-muted">Resume</p>
-              <p className="text-sm text-text-primary">{search.resumeFileName}</p>
-            </div>
-            <div>
-              <p className="mb-1 text-xs text-text-muted">Saved On</p>
+              <p className="mb-1 text-xs text-text-muted">Searched On</p>
               <p className="text-sm text-text-primary">
-                {new Date(search.createdAt).toLocaleDateString("en-US", {
+                {new Date(search.created_at).toLocaleDateString("en-US", {
                   year: "numeric",
                   month: "long",
                   day: "numeric",
@@ -197,19 +216,21 @@ export default function SavedSearchDetailPage() {
               </p>
             </div>
           </div>
-          <div className="mt-4">
-            <p className="mb-2 text-xs text-text-muted">Research Interests</p>
-            <div className="flex flex-wrap gap-2">
-              {search.researchInterests.map((interest, index) => (
-                <span
-                  key={index}
-                  className="inline-flex items-center rounded-md bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"
-                >
-                  {interest}
-                </span>
-              ))}
+          {search.research_interests.length > 0 && (
+            <div className="mt-4">
+              <p className="mb-2 text-xs text-text-muted">Research Interests</p>
+              <div className="flex flex-wrap gap-2">
+                {search.research_interests.map((interest, index) => (
+                  <span
+                    key={index}
+                    className="inline-flex items-center rounded-md bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"
+                  >
+                    {interest}
+                  </span>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Results grid */}

@@ -4,12 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PageLayout, Container } from "@/components/layout";
 import { Input, TextArea, Button, FileUpload } from "@/components/ui";
+import { useAuth } from "@/context";
 import type { UploadedFile } from "@/components/ui";
 
 const USE_MOCK_DATA = process.env.NEXT_PUBLIC_USE_MOCK === "true";
 
 export default function Home() {
   const router = useRouter();
+  const { token } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [university, setUniversity] = useState("");
   const [researchInterests, setResearchInterests] = useState("");
@@ -91,7 +93,7 @@ export default function Home() {
         // Real mode: make API calls
         const { createSession, uploadFile, startMatch } = await import("@/lib/api");
 
-        const session = await createSession();
+        const session = await createSession(token ?? undefined);
 
         const fileIds: string[] = [];
         for (const { file } of files) {
@@ -103,7 +105,8 @@ export default function Home() {
           session.session_id,
           university,
           interests,
-          fileIds
+          fileIds,
+          token ?? undefined
         );
 
         sessionStorage.setItem(
