@@ -2,17 +2,22 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { PageLayout, Container } from "@/components/layout";
-import { Input, TextArea, Button, FileUpload } from "@/components/ui";
+import { Input, TextArea, Button, FileUpload, Modal } from "@/components/ui";
 import { useAuth } from "@/context";
+import { useCredits } from "@/hooks";
+import { ApiError } from "@/lib/api";
 import type { UploadedFile } from "@/components/ui";
 
 const USE_MOCK_DATA = process.env.NEXT_PUBLIC_USE_MOCK === "true";
 
 export default function Home() {
   const router = useRouter();
-  const { token } = useAuth();
+  const { token, isAuthenticated } = useAuth();
+  const { balance, nextFreeCredit, refresh: refreshCredits } = useCredits();
   const [isLoading, setIsLoading] = useState(false);
+  const [showCreditsModal, setShowCreditsModal] = useState(false);
   const [university, setUniversity] = useState("");
   const [researchInterests, setResearchInterests] = useState("");
   const [files, setFiles] = useState<UploadedFile[]>([]);
@@ -63,6 +68,12 @@ export default function Home() {
     e.preventDefault();
 
     if (!validateForm()) return;
+
+    // Pre-check credits for authenticated users
+    if (isAuthenticated && balance !== null && balance <= 0) {
+      setShowCreditsModal(true);
+      return;
+    }
 
     setIsLoading(true);
     setErrors({});
@@ -123,6 +134,12 @@ export default function Home() {
         router.push("/processing");
       }
     } catch (err) {
+      if (err instanceof ApiError && err.status === 402) {
+        await refreshCredits();
+        setShowCreditsModal(true);
+        setIsLoading(false);
+        return;
+      }
       setErrors({
         submit:
           err instanceof Error ? err.message : "Something went wrong. Please try again.",
@@ -187,9 +204,79 @@ export default function Home() {
             >
               Find Matches
             </Button>
+
+            {!isAuthenticated && (
+              <p className="text-center text-sm text-text-muted">
+                <svg
+                  className="mr-1 inline-block h-4 w-4 align-text-bottom text-primary"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path d="M12 2.69l1.34 2.07C15.15 7.47 18 11.69 18 14.5A6 6 0 0 1 6 14.5c0-2.81 2.85-7.03 4.66-9.74L12 2.69M12 0C12 0 4 9.2 4 14.5a8 8 0 0 0 16 0C20 9.2 12 0 12 0z" />
+                </svg>
+                1 free search available —{" "}
+                <Link
+                  href="/register"
+                  className="font-medium text-primary hover:underline"
+                >
+                  sign up
+                </Link>{" "}
+                for 3 credits
+              </p>
+            )}
           </form>
         </div>
       </Container>
+
+      <Modal
+        isOpen={showCreditsModal}
+        onClose={() => setShowCreditsModal(false)}
+        title="Insufficient Credits"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-text-secondary">
+            You don&apos;t have enough search credits to start a new search.
+            {isAuthenticated
+              ? " Free credits replenish at 1 every 3 days (up to 3)."
+              : " Sign up for a free account to get 3 search credits."}
+          </p>
+          {nextFreeCredit && (
+            <div className="rounded-md bg-surface p-3 text-center">
+              <p className="text-xs text-text-muted">Next free credit</p>
+              <p className="text-sm font-medium text-text-primary">
+                {new Date(nextFreeCredit).toLocaleString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}
+              </p>
+            </div>
+          )}
+          <div className="flex gap-2">
+            {isAuthenticated ? (
+              <Link href="/plans" className="flex-1">
+                <Button className="w-full" size="sm">
+                  Get More Credits
+                </Button>
+              </Link>
+            ) : (
+              <Link href="/register" className="flex-1">
+                <Button className="w-full" size="sm">
+                  Sign Up Free
+                </Button>
+              </Link>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowCreditsModal(false)}
+            >
+              Close
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </PageLayout>
   );
 }

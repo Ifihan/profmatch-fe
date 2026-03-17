@@ -8,6 +8,8 @@ import type {
   User,
   SearchHistorySummary,
   SearchHistoryDetail,
+  CreditsResponse,
+  PlansResponse,
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -109,6 +111,18 @@ export async function getSearchDetail(
   return fetchApi<SearchHistoryDetail>(`/api/auth/me/searches/${searchId}`, {
     headers: authHeaders(token),
   });
+}
+
+// ── Credits endpoints ─────────────────────────────────────────────
+
+export async function getCredits(token: string): Promise<CreditsResponse> {
+  return fetchApi<CreditsResponse>("/api/credits", {
+    headers: authHeaders(token),
+  });
+}
+
+export async function getCreditPlans(): Promise<PlansResponse> {
+  return fetchApi<PlansResponse>("/api/credits/plans");
 }
 
 // Health check
