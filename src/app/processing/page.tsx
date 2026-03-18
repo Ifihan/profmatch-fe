@@ -4,7 +4,14 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { PageLayout, Container } from "@/components/layout";
 import { ProgressBar, Button } from "@/components/ui";
-import { getMatchStatus, getMatchResults } from "@/lib/api";
+import {
+  createSession,
+  uploadFile,
+  startMatch,
+  getMatchStatus,
+  getMatchResults,
+} from "@/lib/api";
+import { consumePendingSearch } from "@/lib/pendingSearch";
 
 const POLL_INTERVAL = 2000;
 
@@ -17,24 +24,37 @@ export default function ProcessingPage() {
   const [currentStep, setCurrentStep] = useState("Initializing...");
   const [error, setError] = useState<string | null>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
+  const startedRef = useRef(false);
 
   useEffect(() => {
-    const matchData = sessionStorage.getItem("matchData");
+    if (startedRef.current) return;
+    startedRef.current = true;
 
-    if (!matchData) {
-      router.replace("/");
+    const pending = consumePendingSearch();
+
+    if (USE_MOCK_DATA) {
+      if (!pending) {
+        router.replace("/");
+        return;
+      }
+      runMockProcessing(pending);
       return;
     }
 
-    const { matchId, sessionId } = JSON.parse(matchData);
-
-    if (USE_MOCK_DATA) {
-      // Demo mode: simulate processing
-      runMockProcessing();
-    } else {
-      // Real mode: poll the API
-      pollMatchStatus(matchId, sessionId);
+    // Real mode: consume pending search data and run the full flow
+    if (!pending) {
+      // If no pending data, check if we have matchData from a previous session
+      const matchData = sessionStorage.getItem("matchData");
+      if (matchData) {
+        const { matchId, sessionId } = JSON.parse(matchData);
+        pollMatchStatus(matchId, sessionId);
+      } else {
+        router.replace("/");
+      }
+      return;
     }
+
+    runFullFlow(pending);
 
     return () => {
       if (pollRef.current) {
@@ -43,11 +63,70 @@ export default function ProcessingPage() {
     };
   }, [router]);
 
-  const runMockProcessing = () => {
+  const runFullFlow = async (pending: {
+    university: string;
+    researchInterests: string[];
+    files: File[];
+    token?: string;
+  }) => {
+    try {
+      // Step 1: Create session
+      setCurrentStep("Creating session...");
+      setProgress(5);
+      const session = await createSession(pending.token);
+
+      // Step 2: Upload resume
+      setCurrentStep("Extracting information from resume...");
+      setProgress(15);
+      const fileIds: string[] = [];
+      for (const file of pending.files) {
+        const response = await uploadFile(session.session_id, file);
+        fileIds.push(response.file_id);
+      }
+
+      // Step 3: Start matching
+      setCurrentStep("Starting professor search...");
+      setProgress(25);
+      const { match_id: matchId } = await startMatch(
+        session.session_id,
+        pending.university,
+        pending.researchInterests,
+        fileIds,
+        pending.token
+      );
+
+      // Store match data for the results page
+      sessionStorage.setItem(
+        "matchData",
+        JSON.stringify({
+          sessionId: session.session_id,
+          matchId,
+          university: pending.university,
+          researchInterests: pending.researchInterests,
+          resumeFileName: pending.files[0]?.name || "resume.pdf",
+        })
+      );
+
+      // Step 4: Poll for results
+      pollMatchStatus(matchId, session.session_id);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Something went wrong. Please try again."
+      );
+    }
+  };
+
+  const runMockProcessing = (pending: {
+    university: string;
+    researchInterests: string[];
+    files: File[];
+  }) => {
     const steps = [
+      "Creating session...",
+      "Extracting information from resume...",
+      "Starting professor search...",
       "Retrieving faculty listings...",
       "Analyzing professor publications...",
-      "Parsing your research profile...",
       "Computing research alignment...",
       "Generating recommendations...",
     ];
@@ -56,11 +135,22 @@ export default function ProcessingPage() {
     let stepIndex = 0;
 
     pollRef.current = setInterval(() => {
-      currentProgress += Math.random() * 15 + 5;
+      currentProgress += Math.random() * 12 + 4;
 
       if (currentProgress >= 100) {
         currentProgress = 100;
         if (pollRef.current) clearInterval(pollRef.current);
+
+        sessionStorage.setItem(
+          "matchData",
+          JSON.stringify({
+            sessionId: "mock-session",
+            matchId: "mock-match",
+            university: pending.university,
+            researchInterests: pending.researchInterests,
+            resumeFileName: pending.files[0]?.name || "resume.pdf",
+          })
+        );
 
         sessionStorage.setItem("matchResults", JSON.stringify({
           match_id: "mock-match",
@@ -85,7 +175,9 @@ export default function ProcessingPage() {
       try {
         const status = await getMatchStatus(matchId, sessionId);
 
-        setProgress(status.progress);
+        // Offset progress to account for the setup steps (25% already done)
+        const adjustedProgress = 25 + Math.round(status.progress * 0.75);
+        setProgress(adjustedProgress);
         setCurrentStep(status.current_step);
 
         if (status.status === "completed") {

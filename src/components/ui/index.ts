@@ -5,3 +5,4 @@ export { FileUpload, type FileUploadProps, type UploadedFile } from "./FileUploa
 export { ProgressBar, type ProgressBarProps } from "./ProgressBar";
 export { Skeleton, SkeletonText, SkeletonCard, SkeletonResultsGrid } from "./Skeleton";
 export { Modal } from "./Modal";
+export { Tooltip } from "./Tooltip";

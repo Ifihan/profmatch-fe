@@ -20,7 +20,8 @@ export function useSavedSearches() {
     try {
       const data = await listSearches(token);
       setSearches(data);
-    } catch {
+    } catch (err) {
+      console.error("Failed to load saved searches:", err);
       setSearches([]);
     } finally {
       setIsLoading(false);

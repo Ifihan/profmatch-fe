@@ -37,6 +37,7 @@ export function Header() {
               <Link
                 href="/dashboard"
                 className="text-sm text-text-secondary transition-colors hover:text-primary"
+                data-tour="dashboard-link"
               >
                 Dashboard
               </Link>
@@ -44,6 +45,7 @@ export function Header() {
                 href="/plans"
                 className="inline-flex items-center gap-1 text-sm text-text-secondary transition-colors hover:text-primary"
                 title="Search credits remaining"
+                data-tour="credits-icon"
               >
                 <svg
                   className="h-4 w-4 text-primary"
@@ -67,7 +69,7 @@ export function Header() {
                   Sign In
                 </Button>
               </Link>
-              <Link href="/register">
+              <Link href="/register" data-tour="signup-button">
                 <Button size="sm">Sign Up</Button>
               </Link>
             </div>
