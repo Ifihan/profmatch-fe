@@ -4,20 +4,71 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { PageLayout, Container } from "@/components/layout";
-import { Input, TextArea, Button, FileUpload, Modal } from "@/components/ui";
+import { Input, TextArea, Button, FileUpload, Modal, Tooltip } from "@/components/ui";
 import { useAuth } from "@/context";
-import { useCredits } from "@/hooks";
+import { useCredits, useOnboardingTour } from "@/hooks";
 import { ApiError } from "@/lib/api";
+import type { TourStep } from "@/hooks/useOnboardingTour";
 import type { UploadedFile } from "@/components/ui";
 
 const USE_MOCK_DATA = process.env.NEXT_PUBLIC_USE_MOCK === "true";
 
+const ANON_TOUR_STEPS: TourStep[] = [
+  {
+    id: "free-search",
+    title: "Your Free Search",
+    content:
+      "You get 1 free search without an account. Enter a university, your interests, and a resume to find matching professors.",
+    targetSelector: '[data-tour="find-matches-btn"]',
+    placement: "bottom",
+  },
+  {
+    id: "signup",
+    title: "Want More?",
+    content:
+      "Sign up for a free account to get 3 search credits. They replenish at 1 every 3 days.",
+    targetSelector: '[data-tour="signup-button"]',
+    placement: "bottom",
+  },
+];
+
+const AUTH_TOUR_STEPS: TourStep[] = [
+  {
+    id: "credits-icon",
+    title: "Your Search Credits",
+    content:
+      "This shows your remaining credits. You start with 3 and earn 1 every 3 days (up to 3). Click to view plans.",
+    targetSelector: '[data-tour="credits-icon"]',
+    placement: "bottom",
+  },
+  {
+    id: "dashboard",
+    title: "Your Dashboard",
+    content:
+      "Your past searches and saved results live here. Each search is stored automatically.",
+    targetSelector: '[data-tour="dashboard-link"]',
+    placement: "bottom",
+  },
+];
+
 export default function Home() {
   const router = useRouter();
-  const { token, isAuthenticated } = useAuth();
+  const { token, isAuthenticated, isLoading: authLoading } = useAuth();
   const { balance, nextFreeCredit, refresh: refreshCredits } = useCredits();
   const [isLoading, setIsLoading] = useState(false);
   const [showCreditsModal, setShowCreditsModal] = useState(false);
+
+  const anonTour = useOnboardingTour({
+    tourId: "home-anon",
+    steps: ANON_TOUR_STEPS,
+    enabled: !authLoading && !isAuthenticated,
+  });
+
+  const authTour = useOnboardingTour({
+    tourId: "home-auth",
+    steps: AUTH_TOUR_STEPS,
+    enabled: !authLoading && isAuthenticated,
+  });
   const [university, setUniversity] = useState("");
   const [researchInterests, setResearchInterests] = useState("");
   const [files, setFiles] = useState<UploadedFile[]>([]);
@@ -201,12 +252,13 @@ export default function Home() {
               size="lg"
               className="w-full"
               isLoading={isLoading}
+              data-tour="find-matches-btn"
             >
               Find Matches
             </Button>
 
             {!isAuthenticated && (
-              <p className="text-center text-sm text-text-muted">
+              <p className="text-center text-sm text-text-muted" data-tour="free-search-text">
                 <svg
                   className="mr-1 inline-block h-4 w-4 align-text-bottom text-primary"
                   viewBox="0 0 24 24"
@@ -277,6 +329,51 @@ export default function Home() {
           </div>
         </div>
       </Modal>
+
+      {/* Onboarding tooltips */}
+      {anonTour.currentStep && (
+        <Tooltip
+          targetSelector={anonTour.currentStep.targetSelector}
+          isOpen={anonTour.isActive}
+          onDismiss={anonTour.dismiss}
+          placement={anonTour.currentStep.placement}
+          title={anonTour.currentStep.title}
+          stepInfo={{
+            current: anonTour.stepIndex + 1,
+            total: anonTour.totalSteps,
+          }}
+          onPrev={anonTour.stepIndex > 0 ? anonTour.prev : undefined}
+          onNext={
+            anonTour.stepIndex < anonTour.totalSteps - 1
+              ? anonTour.next
+              : undefined
+          }
+        >
+          {anonTour.currentStep.content}
+        </Tooltip>
+      )}
+
+      {authTour.currentStep && (
+        <Tooltip
+          targetSelector={authTour.currentStep.targetSelector}
+          isOpen={authTour.isActive}
+          onDismiss={authTour.dismiss}
+          placement={authTour.currentStep.placement}
+          title={authTour.currentStep.title}
+          stepInfo={{
+            current: authTour.stepIndex + 1,
+            total: authTour.totalSteps,
+          }}
+          onPrev={authTour.stepIndex > 0 ? authTour.prev : undefined}
+          onNext={
+            authTour.stepIndex < authTour.totalSteps - 1
+              ? authTour.next
+              : undefined
+          }
+        >
+          {authTour.currentStep.content}
+        </Tooltip>
+      )}
     </PageLayout>
   );
 }
