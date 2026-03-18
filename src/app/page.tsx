@@ -7,11 +7,9 @@ import { PageLayout, Container } from "@/components/layout";
 import { Input, TextArea, Button, FileUpload, Modal, Tooltip } from "@/components/ui";
 import { useAuth } from "@/context";
 import { useCredits, useOnboardingTour } from "@/hooks";
-import { ApiError } from "@/lib/api";
+import { setPendingSearch } from "@/lib/pendingSearch";
 import type { TourStep } from "@/hooks/useOnboardingTour";
 import type { UploadedFile } from "@/components/ui";
-
-const USE_MOCK_DATA = process.env.NEXT_PUBLIC_USE_MOCK === "true";
 
 const ANON_TOUR_STEPS: TourStep[] = [
   {
@@ -115,7 +113,7 @@ export default function Home() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validateForm()) return;
@@ -126,77 +124,20 @@ export default function Home() {
       return;
     }
 
-    setIsLoading(true);
-    setErrors({});
+    const interests = researchInterests
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
 
-    try {
-      const interests = researchInterests
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
+    // Store form data for the processing page to handle
+    setPendingSearch({
+      university,
+      researchInterests: interests,
+      files: files.map((f) => f.file),
+      token: token ?? undefined,
+    });
 
-      const resumeFileName = files[0]?.file.name || "resume.pdf";
-
-      if (USE_MOCK_DATA) {
-        // Demo mode: skip API calls, store form data and navigate
-        sessionStorage.setItem(
-          "matchData",
-          JSON.stringify({
-            sessionId: "mock-session",
-            matchId: "mock-match",
-            university,
-            researchInterests: interests,
-            resumeFileName,
-          })
-        );
-
-        router.push("/processing");
-      } else {
-        // Real mode: make API calls
-        const { createSession, uploadFile, startMatch } = await import("@/lib/api");
-
-        const session = await createSession(token ?? undefined);
-
-        const fileIds: string[] = [];
-        for (const { file } of files) {
-          const response = await uploadFile(session.session_id, file);
-          fileIds.push(response.file_id);
-        }
-
-        const { match_id: matchId } = await startMatch(
-          session.session_id,
-          university,
-          interests,
-          fileIds,
-          token ?? undefined
-        );
-
-        sessionStorage.setItem(
-          "matchData",
-          JSON.stringify({
-            sessionId: session.session_id,
-            matchId,
-            university,
-            researchInterests: interests,
-            resumeFileName,
-          })
-        );
-
-        router.push("/processing");
-      }
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 402) {
-        await refreshCredits();
-        setShowCreditsModal(true);
-        setIsLoading(false);
-        return;
-      }
-      setErrors({
-        submit:
-          err instanceof Error ? err.message : "Something went wrong. Please try again.",
-      });
-      setIsLoading(false);
-    }
+    router.push("/processing");
   };
 
   return (
