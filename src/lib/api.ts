@@ -10,9 +10,24 @@ import type {
   SearchHistoryDetail,
   CreditsResponse,
   PlansResponse,
+  PromoCode,
+  PromoCodeRedemptionResponse,
+  AdminStats,
+  CreatePromoCodePayload,
 } from "@/types";
+import {
+  mockAdminAuthResponse,
+  mockRegularAuthResponse,
+  mockAdminUser,
+  mockRegularUser,
+  mockAdminStats,
+  mockPromoCodes,
+  mockRedeemResponse,
+  delay,
+} from "@/lib/mock/adminMocks";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true";
 
 class ApiError extends Error {
   constructor(
@@ -69,6 +84,13 @@ export async function login(
   password: string,
   sessionId?: string
 ): Promise<AuthResponse> {
+  if (USE_MOCK) {
+    await delay(300);
+    if (email === "admin@test.com") {
+      return mockAdminAuthResponse;
+    }
+    return mockRegularAuthResponse;
+  }
   return fetchApi<AuthResponse>("/api/auth/login", {
     method: "POST",
     body: JSON.stringify({ email, password, session_id: sessionId }),
@@ -93,6 +115,10 @@ export async function resetPassword(
 }
 
 export async function getMe(token: string): Promise<User> {
+  if (USE_MOCK) {
+    await delay(200);
+    return token === "mock-admin-token" ? mockAdminUser : mockRegularUser;
+  }
   return fetchApi<User>("/api/auth/me", {
     headers: authHeaders(token),
   });
@@ -228,6 +254,100 @@ export async function getProfessor(
   professorId: string
 ): Promise<ProfessorProfile> {
   return fetchApi<ProfessorProfile>(`/api/professor/${professorId}`);
+}
+
+// ── Promo code endpoints ──────────────────────────────────────────
+
+export async function redeemPromoCode(
+  token: string,
+  code: string
+): Promise<PromoCodeRedemptionResponse> {
+  if (USE_MOCK) {
+    await delay(500);
+    return mockRedeemResponse;
+  }
+  return fetchApi<PromoCodeRedemptionResponse>("/api/credits/redeem", {
+    method: "POST",
+    body: JSON.stringify({ code }),
+    headers: authHeaders(token),
+  });
+}
+
+// ── Admin endpoints ───────────────────────────────────────────────
+
+export async function getAdminStats(token: string): Promise<AdminStats> {
+  if (USE_MOCK) {
+    await delay(400);
+    return mockAdminStats;
+  }
+  return fetchApi<AdminStats>("/api/admin/stats", {
+    headers: authHeaders(token),
+  });
+}
+
+export async function getAdminPromoCodes(token: string): Promise<PromoCode[]> {
+  if (USE_MOCK) {
+    await delay(400);
+    return mockPromoCodes;
+  }
+  const data = await fetchApi<{ promo_codes: PromoCode[] }>("/api/admin/promo-codes", {
+    headers: authHeaders(token),
+  });
+  return data.promo_codes;
+}
+
+export async function createPromoCode(
+  token: string,
+  payload: CreatePromoCodePayload
+): Promise<PromoCode> {
+  if (USE_MOCK) {
+    await delay(500);
+    return {
+      id: `pc-${Date.now()}`,
+      code: payload.code,
+      credits: payload.credits,
+      max_uses: payload.max_uses,
+      use_count: 0,
+      is_active: true,
+      created_at: new Date().toISOString(),
+    };
+  }
+  return fetchApi<PromoCode>("/api/admin/promo-codes", {
+    method: "POST",
+    body: JSON.stringify(payload),
+    headers: authHeaders(token),
+  });
+}
+
+export async function togglePromoCode(
+  token: string,
+  id: string,
+  isActive: boolean
+): Promise<PromoCode> {
+  if (USE_MOCK) {
+    await delay(300);
+    const code = mockPromoCodes.find((c) => c.id === id);
+    return { ...(code ?? mockPromoCodes[0]), is_active: isActive };
+  }
+  return fetchApi<PromoCode>(`/api/admin/promo-codes/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ is_active: isActive }),
+    headers: authHeaders(token),
+  });
+}
+
+export async function deletePromoCode(
+  token: string,
+  id: string
+): Promise<void> {
+  if (USE_MOCK) {
+    await delay(300);
+    return;
+  }
+  await fetchApi(`/api/admin/promo-codes/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
 }
 
 export { ApiError };

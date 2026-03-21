@@ -6,7 +6,7 @@ import { useCredits } from "@/hooks";
 import { Button } from "@/components/ui";
 
 export function Header() {
-  const { isAuthenticated, isLoading, logout } = useAuth();
+  const { user, isAuthenticated, isLoading, logout } = useAuth();
   const { balance } = useCredits();
 
   return (
@@ -29,11 +29,25 @@ export function Header() {
           >
             About
           </Link>
+          <Link
+            href="/plans"
+            className="text-sm text-text-secondary transition-colors hover:text-primary"
+          >
+            Plans
+          </Link>
 
           {isLoading ? (
             <div className="h-5 w-20 animate-pulse rounded bg-surface" />
           ) : isAuthenticated ? (
             <>
+              {user?.is_admin && (
+                <Link
+                  href="/admin"
+                  className="text-sm text-text-secondary transition-colors hover:text-primary"
+                >
+                  Admin
+                </Link>
+              )}
               <Link
                 href="/dashboard"
                 className="text-sm text-text-secondary transition-colors hover:text-primary"

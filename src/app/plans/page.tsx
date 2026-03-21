@@ -3,18 +3,22 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { PageLayout, Container } from "@/components/layout";
-import { Button, Skeleton } from "@/components/ui";
+import { Button, Input, Skeleton } from "@/components/ui";
 import { useAuth } from "@/context";
 import { useCredits } from "@/hooks";
-import { getCreditPlans } from "@/lib/api";
+import { getCreditPlans, redeemPromoCode } from "@/lib/api";
 import type { CreditPlan } from "@/types";
 
 export default function PlansPage() {
-  const { isAuthenticated } = useAuth();
-  const { balance, nextFreeCredit } = useCredits();
+  const { token, isAuthenticated } = useAuth();
+  const { balance, nextFreeCredit, refresh: refreshCredits } = useCredits();
   const [plans, setPlans] = useState<CreditPlan[]>([]);
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [promoCode, setPromoCode] = useState("");
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [promoSuccess, setPromoSuccess] = useState<string | null>(null);
+  const [promoError, setPromoError] = useState<string | null>(null);
 
   useEffect(() => {
     getCreditPlans()
@@ -116,6 +120,16 @@ export default function PlansPage() {
                   Free credits cap at 3 — spend one to start earning again.
                 </p>
               </div>
+              <div className="flex gap-3">
+                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                  4
+                </span>
+                <p>
+                  Have a{" "}
+                  <span className="font-medium text-text-primary">promo code</span>?
+                  Redeem it below to get bonus credits instantly.
+                </p>
+              </div>
             </div>
             {!isAuthenticated && (
               <div className="mt-6">
@@ -123,6 +137,75 @@ export default function PlansPage() {
                   <Button>Sign Up for Free Credits</Button>
                 </Link>
               </div>
+            )}
+          </section>
+
+          {/* Promo Code Redemption */}
+          <section className="mb-12">
+            <h2 className="mb-4 text-xl font-semibold text-text-primary">
+              Redeem a Promo Code
+            </h2>
+            {isAuthenticated ? (
+              <>
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <Input
+                      placeholder="Enter promo code"
+                      value={promoCode}
+                      onChange={(e) => {
+                        setPromoCode(e.target.value.toUpperCase());
+                        setPromoSuccess(null);
+                        setPromoError(null);
+                      }}
+                    />
+                  </div>
+                  <Button
+                    onClick={async () => {
+                      if (!token || !promoCode.trim()) return;
+                      setPromoLoading(true);
+                      setPromoSuccess(null);
+                      setPromoError(null);
+                      try {
+                        const result = await redeemPromoCode(token, promoCode.trim());
+                        setPromoSuccess(
+                          `${result.credits_granted} credits added! New balance: ${result.new_balance}`
+                        );
+                        setPromoCode("");
+                        refreshCredits();
+                      } catch (err) {
+                        setPromoError(
+                          err instanceof Error
+                            ? err.message
+                            : "Invalid or expired promo code."
+                        );
+                      } finally {
+                        setPromoLoading(false);
+                      }
+                    }}
+                    isLoading={promoLoading}
+                    disabled={!promoCode.trim()}
+                  >
+                    Redeem
+                  </Button>
+                </div>
+                {promoSuccess && (
+                  <p className="mt-2 text-sm text-success">{promoSuccess}</p>
+                )}
+                {promoError && (
+                  <p className="mt-2 text-sm text-error">{promoError}</p>
+                )}
+              </>
+            ) : (
+              <p className="text-text-secondary">
+                <Link href="/login" className="font-medium text-primary hover:underline">
+                  Sign in
+                </Link>{" "}
+                or{" "}
+                <Link href="/register" className="font-medium text-primary hover:underline">
+                  create an account
+                </Link>{" "}
+                to redeem a promo code.
+              </p>
             )}
           </section>
 

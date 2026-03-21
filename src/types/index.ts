@@ -104,6 +104,7 @@ export interface User {
   name: string;
   created_at: string;
   search_credits?: SearchCredits;
+  is_admin?: boolean;
 }
 
 export interface AuthResponse {
@@ -148,6 +149,36 @@ export interface CreditPlan {
 export interface PlansResponse {
   plans: CreditPlan[];
   message: string;
+}
+
+// Promo Code Types
+export interface PromoCode {
+  id: string;
+  code: string;
+  credits: number;
+  max_uses: number;
+  use_count: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface PromoCodeRedemptionResponse {
+  credits_granted: number;
+  new_balance: number;
+}
+
+export interface CreatePromoCodePayload {
+  code: string;
+  credits: number;
+  max_uses: number;
+}
+
+// Admin Types
+export interface AdminStats {
+  total_users: number;
+  total_searches: number;
+  active_users_last_30d: number;
+  paid_users: number;
 }
 
 // Search History Types
