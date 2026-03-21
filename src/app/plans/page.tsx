@@ -120,6 +120,16 @@ export default function PlansPage() {
                   Free credits cap at 3 — spend one to start earning again.
                 </p>
               </div>
+              <div className="flex gap-3">
+                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                  4
+                </span>
+                <p>
+                  Have a{" "}
+                  <span className="font-medium text-text-primary">promo code</span>?
+                  Redeem it below to get bonus credits instantly.
+                </p>
+              </div>
             </div>
             {!isAuthenticated && (
               <div className="mt-6">
@@ -131,60 +141,73 @@ export default function PlansPage() {
           </section>
 
           {/* Promo Code Redemption */}
-          {isAuthenticated && (
-            <section className="mb-12">
-              <h2 className="mb-4 text-xl font-semibold text-text-primary">
-                Have a Promo Code?
-              </h2>
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <Input
-                    placeholder="Enter promo code"
-                    value={promoCode}
-                    onChange={(e) => {
-                      setPromoCode(e.target.value.toUpperCase());
+          <section className="mb-12">
+            <h2 className="mb-4 text-xl font-semibold text-text-primary">
+              Redeem a Promo Code
+            </h2>
+            {isAuthenticated ? (
+              <>
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <Input
+                      placeholder="Enter promo code"
+                      value={promoCode}
+                      onChange={(e) => {
+                        setPromoCode(e.target.value.toUpperCase());
+                        setPromoSuccess(null);
+                        setPromoError(null);
+                      }}
+                    />
+                  </div>
+                  <Button
+                    onClick={async () => {
+                      if (!token || !promoCode.trim()) return;
+                      setPromoLoading(true);
                       setPromoSuccess(null);
                       setPromoError(null);
+                      try {
+                        const result = await redeemPromoCode(token, promoCode.trim());
+                        setPromoSuccess(
+                          `${result.credits_granted} credits added! New balance: ${result.new_balance}`
+                        );
+                        setPromoCode("");
+                        refreshCredits();
+                      } catch (err) {
+                        setPromoError(
+                          err instanceof Error
+                            ? err.message
+                            : "Invalid or expired promo code."
+                        );
+                      } finally {
+                        setPromoLoading(false);
+                      }
                     }}
-                  />
+                    isLoading={promoLoading}
+                    disabled={!promoCode.trim()}
+                  >
+                    Redeem
+                  </Button>
                 </div>
-                <Button
-                  onClick={async () => {
-                    if (!token || !promoCode.trim()) return;
-                    setPromoLoading(true);
-                    setPromoSuccess(null);
-                    setPromoError(null);
-                    try {
-                      const result = await redeemPromoCode(token, promoCode.trim());
-                      setPromoSuccess(
-                        `${result.credits_granted} credits added! New balance: ${result.new_balance}`
-                      );
-                      setPromoCode("");
-                      refreshCredits();
-                    } catch (err) {
-                      setPromoError(
-                        err instanceof Error
-                          ? err.message
-                          : "Invalid or expired promo code."
-                      );
-                    } finally {
-                      setPromoLoading(false);
-                    }
-                  }}
-                  isLoading={promoLoading}
-                  disabled={!promoCode.trim()}
-                >
-                  Redeem
-                </Button>
-              </div>
-              {promoSuccess && (
-                <p className="mt-2 text-sm text-success">{promoSuccess}</p>
-              )}
-              {promoError && (
-                <p className="mt-2 text-sm text-error">{promoError}</p>
-              )}
-            </section>
-          )}
+                {promoSuccess && (
+                  <p className="mt-2 text-sm text-success">{promoSuccess}</p>
+                )}
+                {promoError && (
+                  <p className="mt-2 text-sm text-error">{promoError}</p>
+                )}
+              </>
+            ) : (
+              <p className="text-text-secondary">
+                <Link href="/login" className="font-medium text-primary hover:underline">
+                  Sign in
+                </Link>{" "}
+                or{" "}
+                <Link href="/register" className="font-medium text-primary hover:underline">
+                  create an account
+                </Link>{" "}
+                to redeem a promo code.
+              </p>
+            )}
+          </section>
 
           {/* Divider */}
           <hr className="mb-12 border-border" />

@@ -29,6 +29,12 @@ export function Header() {
           >
             About
           </Link>
+          <Link
+            href="/plans"
+            className="text-sm text-text-secondary transition-colors hover:text-primary"
+          >
+            Plans
+          </Link>
 
           {isLoading ? (
             <div className="h-5 w-20 animate-pulse rounded bg-surface" />
