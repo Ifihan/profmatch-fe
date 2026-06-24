@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Button, Skeleton } from "@/components/ui";
 import type { PromoCode } from "@/types";
 
@@ -18,6 +19,18 @@ export function PromoCodeTable({
   onCreate,
   isLoading,
 }: PromoCodeTableProps) {
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopy = async (code: PromoCode) => {
+    try {
+      await navigator.clipboard.writeText(code.code);
+      setCopiedId(code.id);
+      setTimeout(() => setCopiedId(null), 1500);
+    } catch {
+      // Clipboard unavailable (e.g. insecure context) — silently no-op.
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -80,6 +93,43 @@ export function PromoCodeTable({
                 <span className="font-mono text-sm font-semibold text-text-primary">
                   {code.code}
                 </span>
+                <button
+                  type="button"
+                  onClick={() => handleCopy(code)}
+                  className="text-text-muted transition-colors hover:text-primary"
+                  aria-label={`Copy promo code ${code.code}`}
+                  title={copiedId === code.id ? "Copied!" : "Copy code"}
+                >
+                  {copiedId === code.id ? (
+                    <svg
+                      className="h-4 w-4 text-success"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  ) : (
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                      />
+                    </svg>
+                  )}
+                </button>
                 <span
                   className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                     isActive && !isFull
