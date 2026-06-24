@@ -4,19 +4,21 @@ import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { PageLayout, Container } from "@/components/layout";
-import { Button, Skeleton } from "@/components/ui";
+import { Button, Skeleton, Modal } from "@/components/ui";
 import { SavedSearchCard } from "@/components/dashboard";
 import { useAuth } from "@/context";
 import { useSavedSearches } from "@/hooks";
+import type { SearchHistorySummary } from "@/types";
 
 type SortOption = "newest" | "oldest" | "most_matches";
 
 export default function DashboardPage() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
-  const { searches, isLoading: searchesLoading } = useSavedSearches();
+  const { searches, isLoading: searchesLoading, remove } = useSavedSearches();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("newest");
+  const [deleteTarget, setDeleteTarget] = useState<SearchHistorySummary | null>(null);
 
   const filteredAndSortedSearches = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
@@ -192,6 +194,7 @@ export default function DashboardPage() {
                     key={search.job_id}
                     search={search}
                     onView={() => router.push(`/dashboard/${search.job_id}`)}
+                    onDelete={() => setDeleteTarget(search)}
                   />
                 ))}
               </div>
@@ -199,6 +202,37 @@ export default function DashboardPage() {
           </>
         )}
       </Container>
+
+      <Modal
+        isOpen={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        title="Delete this search?"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-text-secondary">
+            This permanently removes this saved search. This can&apos;t be undone.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDeleteTarget(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="bg-error text-white hover:bg-error/90"
+              onClick={() => {
+                if (deleteTarget) remove(deleteTarget.job_id);
+                setDeleteTarget(null);
+              }}
+            >
+              Delete
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </PageLayout>
   );
 }

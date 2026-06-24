@@ -110,6 +110,7 @@ async function fetchApi<T>(
     throw new ApiError(response.status, errorText || response.statusText);
   }
 
+  if (response.status === 204) return undefined as T;
   return response.json();
 }
 
@@ -187,6 +188,23 @@ export async function getMe(token: string): Promise<User> {
   });
 }
 
+export async function updateProfile(token: string, name: string): Promise<User> {
+  return fetchApi<User>("/api/auth/me", {
+    method: "PATCH",
+    body: JSON.stringify({ name }),
+    headers: authHeaders(token),
+  });
+}
+
+// Deletes the current user's account (password-confirmed).
+export async function deleteAccount(token: string, password: string): Promise<void> {
+  await fetchApi("/api/auth/me", {
+    method: "DELETE",
+    body: JSON.stringify({ password }),
+    headers: authHeaders(token),
+  });
+}
+
 export async function listSearches(token: string): Promise<SearchHistorySummary[]> {
   return fetchApi<SearchHistorySummary[]>("/api/auth/me/searches", {
     headers: authHeaders(token),
@@ -198,6 +216,21 @@ export async function getSearchDetail(
   searchId: string
 ): Promise<SearchHistoryDetail> {
   return fetchApi<SearchHistoryDetail>(`/api/auth/me/searches/${searchId}`, {
+    headers: authHeaders(token),
+  });
+}
+
+export async function deleteSearch(token: string, searchId: string): Promise<void> {
+  await fetchApi(`/api/auth/me/searches/${searchId}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+}
+
+// Clears the user's finished search history.
+export async function clearSearches(token: string): Promise<void> {
+  await fetchApi("/api/auth/me/searches", {
+    method: "DELETE",
     headers: authHeaders(token),
   });
 }

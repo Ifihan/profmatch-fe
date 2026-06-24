@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/context";
 import { useCredits } from "@/hooks";
@@ -8,6 +9,29 @@ import { Button } from "@/components/ui";
 export function Header() {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
   const { balance } = useCredits();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const initial = user?.name?.trim().charAt(0).toUpperCase() || "?";
+
+  // Close the avatar menu on outside click or Escape.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuOpen]);
 
   return (
     <header className="border-b border-border bg-background">
@@ -72,9 +96,54 @@ export function Header() {
                   {balance !== null ? balance : "..."}
                 </span>
               </Link>
-              <Button variant="outline" size="sm" onClick={logout}>
-                Sign Out
-              </Button>
+              <div className="relative" ref={menuRef}>
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen((o) => !o)}
+                  aria-label="Account menu"
+                  aria-haspopup="menu"
+                  aria-expanded={menuOpen}
+                  title={user?.name || "Account"}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-primary bg-white text-sm font-semibold text-primary transition-colors hover:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
+                >
+                  {initial}
+                </button>
+
+                {menuOpen && (
+                  <div
+                    role="menu"
+                    className="absolute right-0 z-50 mt-2 w-44 overflow-hidden rounded-md border border-border bg-background py-1 shadow-lg"
+                  >
+                    <div className="border-b border-border px-4 py-2">
+                      <p className="truncate text-sm font-medium text-text-primary">
+                        {user?.name}
+                      </p>
+                      <p className="truncate text-xs text-text-muted">
+                        {user?.email}
+                      </p>
+                    </div>
+                    <Link
+                      href="/settings"
+                      role="menuitem"
+                      onClick={() => setMenuOpen(false)}
+                      className="block px-4 py-2 text-sm text-text-secondary transition-colors hover:bg-surface hover:text-primary"
+                    >
+                      Settings
+                    </Link>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        logout();
+                      }}
+                      className="block w-full px-4 py-2 text-left text-sm text-error transition-colors hover:bg-error/5"
+                    >
+                      Sign out
+                    </button>
+                  </div>
+                )}
+              </div>
             </>
           ) : (
             <div className="flex items-center gap-2">

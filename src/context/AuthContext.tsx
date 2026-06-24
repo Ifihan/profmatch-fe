@@ -10,7 +10,13 @@ import {
   type ReactNode,
 } from "react";
 import type { AuthState } from "@/types";
-import { login as apiLogin, signup as apiSignup, getMe, refreshSession } from "@/lib/api";
+import {
+  login as apiLogin,
+  signup as apiSignup,
+  getMe,
+  refreshSession,
+  updateProfile,
+} from "@/lib/api";
 import {
   getAccessToken,
   setTokens,
@@ -21,6 +27,7 @@ import {
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
+  updateName: (name: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -124,12 +131,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [scheduleRefresh]
   );
 
+  const updateName = useCallback(async (name: string) => {
+    const token = getAccessToken();
+    if (!token) return;
+    const user = await updateProfile(token, name);
+    setState((s) => ({ ...s, user }));
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
         ...state,
         login,
         register,
+        updateName,
         logout,
       }}
     >
