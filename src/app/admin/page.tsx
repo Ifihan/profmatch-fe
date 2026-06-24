@@ -60,22 +60,31 @@ export default function AdminPage() {
 
   const handleCreate = async (payload: CreatePromoCodePayload) => {
     if (!token) return;
-    const newCode = await apiCreatePromoCode(token, payload);
+    const created = await apiCreatePromoCode(token, payload);
+    // The API returns only { id, code }; rebuild the full row for display.
+    const newCode: PromoCode = {
+      id: created.id,
+      code: created.code ?? payload.code,
+      credits: payload.credits,
+      max_redemptions: payload.max_redemptions ?? null,
+      times_redeemed: 0,
+      is_disabled: false,
+    };
     setCodes((prev) => [newCode, ...prev]);
   };
 
   const handleToggle = async (id: string, isActive: boolean) => {
     if (!token) return;
-    // Optimistic update
+    // Optimistic update (isActive is the desired state; is_disabled is its inverse)
     setCodes((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, is_active: isActive } : c))
+      prev.map((c) => (c.id === id ? { ...c, is_disabled: !isActive } : c))
     );
     try {
       await apiTogglePromoCode(token, id, isActive);
     } catch {
       // Revert on error
       setCodes((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, is_active: !isActive } : c))
+        prev.map((c) => (c.id === id ? { ...c, is_disabled: isActive } : c))
       );
     }
   };

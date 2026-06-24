@@ -8,6 +8,7 @@ import { Input, TextArea, Button, FileUpload, Modal, Tooltip } from "@/component
 import { useAuth } from "@/context";
 import { useCredits, useOnboardingTour } from "@/hooks";
 import { setPendingSearch } from "@/lib/pendingSearch";
+import { hasUsedAnonSearch } from "@/lib/anonSearch";
 import type { TourStep } from "@/hooks/useOnboardingTour";
 import type { UploadedFile } from "@/components/ui";
 
@@ -118,6 +119,12 @@ export default function Home() {
 
     if (!validateForm()) return;
 
+    // Anonymous users get one free search; once used, prompt them to sign up.
+    if (!isAuthenticated && hasUsedAnonSearch()) {
+      setShowCreditsModal(true);
+      return;
+    }
+
     // Pre-check credits for authenticated users
     if (isAuthenticated && balance !== null && balance <= 0) {
       setShowCreditsModal(true);
@@ -224,14 +231,13 @@ export default function Home() {
       <Modal
         isOpen={showCreditsModal}
         onClose={() => setShowCreditsModal(false)}
-        title="Insufficient Credits"
+        title={isAuthenticated ? "Insufficient Credits" : "Free Search Used"}
       >
         <div className="space-y-4">
           <p className="text-sm text-text-secondary">
-            You don&apos;t have enough search credits to start a new search.
             {isAuthenticated
-              ? " Free credits replenish at 1 every 3 days (up to 3)."
-              : " Sign up for a free account to get 3 search credits."}
+              ? "You don't have enough search credits to start a new search. Free credits replenish at 1 every 3 days (up to 3)."
+              : "You've already used your free search. Sign up for a free account to get 3 search credits."}
           </p>
           {nextFreeCredit && (
             <div className="rounded-md bg-surface p-3 text-center">

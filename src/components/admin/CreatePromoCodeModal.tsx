@@ -59,7 +59,7 @@ export function CreatePromoCodeModal({
       await onCreated({
         code: trimmedCode.toUpperCase(),
         credits,
-        max_uses: maxUses,
+        max_redemptions: maxUses,
       });
       resetForm();
       onClose();

@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
-import { startMatch, getMatchStatus, getMatchResults } from "@/lib/api";
-import type { MatchStatus, MatchResultsResponse } from "@/types";
+import { createMatch, getMatch } from "@/lib/api";
+import type { JobStatusResponse, MatchResultsResponse } from "@/types";
 
 const POLL_INTERVAL = 2000;
 
 export function useMatch() {
-  const [matchId, setMatchId] = useState<string | null>(null);
-  const [status, setStatus] = useState<MatchStatus | null>(null);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [status, setStatus] = useState<JobStatusResponse | null>(null);
   const [results, setResults] = useState<MatchResultsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -21,26 +21,30 @@ export function useMatch() {
     }
   }, []);
 
+  // Submits a match job (CV uploaded inline); pass a token to save it to the account.
   const start = useCallback(
     async (
-      sessionId: string,
-      university: string,
-      researchInterests: string[],
-      fileIds: string[]
+      universityUrl: string,
+      researchInterests: string,
+      cv: File,
+      token?: string,
+      onProgress?: (progress: number) => void
     ) => {
       setError(null);
       setStatus(null);
       setResults(null);
 
       try {
-        const response = await startMatch(
-          sessionId,
-          university,
+        const job = await createMatch(
+          universityUrl,
           researchInterests,
-          fileIds
+          cv,
+          token,
+          onProgress
         );
-        setMatchId(response.match_id);
-        return response.match_id;
+        setJobId(job.job_id);
+        setStatus(job);
+        return job.job_id;
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to start matching";
@@ -52,23 +56,27 @@ export function useMatch() {
   );
 
   const pollStatus = useCallback(
-    async (id: string, sessionId: string): Promise<MatchResultsResponse> => {
+    (id: string, token?: string): Promise<MatchResultsResponse> => {
       return new Promise((resolve, reject) => {
         const poll = async () => {
           try {
-            const statusResponse = await getMatchStatus(id, sessionId);
-            setStatus(statusResponse);
+            const job = await getMatch(id, token);
+            setStatus(job);
 
-            if (statusResponse.status === "completed") {
+            if (job.status === "done" || job.status === "completed") {
               stopPolling();
-              const resultsResponse = await getMatchResults(id, sessionId);
-              setResults(resultsResponse);
-              resolve(resultsResponse);
-            } else if (statusResponse.status === "failed") {
+              const result = job.result ?? null;
+              setResults(result);
+              if (result) {
+                resolve(result);
+              } else {
+                reject(new Error("Match completed without results"));
+              }
+            } else if (job.status === "failed") {
               stopPolling();
-              const errorMessage = statusResponse.error || "Matching failed";
-              setError(errorMessage);
-              reject(new Error(errorMessage));
+              const message = job.error || "Matching failed";
+              setError(message);
+              reject(new Error(message));
             }
           } catch (err) {
             stopPolling();
@@ -88,14 +96,14 @@ export function useMatch() {
 
   const reset = useCallback(() => {
     stopPolling();
-    setMatchId(null);
+    setJobId(null);
     setStatus(null);
     setResults(null);
     setError(null);
   }, [stopPolling]);
 
   return {
-    matchId,
+    jobId,
     status,
     results,
     error,

@@ -10,18 +10,20 @@ export function useCredits() {
   const [credits, setCredits] = useState<CreditsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const loadCredits = useCallback(async () => {
+  const loadCredits = useCallback(async (): Promise<CreditsResponse | null> => {
     if (!token) {
       setCredits(null);
       setIsLoading(false);
-      return;
+      return null;
     }
 
     try {
       const data = await getCredits(token);
       setCredits(data);
+      return data;
     } catch {
       setCredits(null);
+      return null;
     } finally {
       setIsLoading(false);
     }

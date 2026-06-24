@@ -5,11 +5,17 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatMatchScore(score: number): string {
-  return `${Math.round(score)}%`;
+// Normalizes match_score (0–1 from API, or 0–100 legacy/mock) to a 0–100 integer.
+export function matchScorePercent(score: number): number {
+  return Math.round(score <= 1 ? score * 100 : score);
 }
 
-export function formatCitationCount(count: number): string {
+export function formatMatchScore(score: number): string {
+  return `${matchScorePercent(score)}%`;
+}
+
+export function formatCitationCount(count: number | null | undefined): string {
+  if (count == null) return "0";
   if (count >= 1000000) {
     return `${(count / 1000000).toFixed(1)}M`;
   }

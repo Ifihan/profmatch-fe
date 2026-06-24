@@ -25,14 +25,14 @@ export default function DashboardPage() {
       ? searches.filter((s) => {
           const universityName = (() => {
             try {
-              return new URL(s.university).hostname.replace("www.", "");
+              return new URL(s.university_url).hostname.replace("www.", "");
             } catch {
-              return s.university;
+              return s.university_url;
             }
           })();
           return (
             universityName.toLowerCase().includes(query) ||
-            s.research_interests.some((i) => i.toLowerCase().includes(query))
+            s.research_interests.toLowerCase().includes(query)
           );
         })
       : searches;
@@ -44,7 +44,7 @@ export default function DashboardPage() {
         case "oldest":
           return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
         case "most_matches":
-          return b.result_count - a.result_count;
+          return b.match_count - a.match_count;
         default:
           return 0;
       }
@@ -189,9 +189,9 @@ export default function DashboardPage() {
               <div className="grid gap-6 md:grid-cols-2">
                 {filteredAndSortedSearches.map((search) => (
                   <SavedSearchCard
-                    key={search.id}
+                    key={search.job_id}
                     search={search}
-                    onView={() => router.push(`/dashboard/${search.id}`)}
+                    onView={() => router.push(`/dashboard/${search.job_id}`)}
                   />
                 ))}
               </div>

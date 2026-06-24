@@ -1,4 +1,5 @@
 import type { MatchResult } from "@/types";
+import { matchScorePercent } from "@/lib/utils";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -18,20 +19,20 @@ export function exportToMarkdown(matches: MatchResult[]): string {
     const rank = index + 1;
 
     lines.push(`## ${rank}. ${prof.name}`);
-    lines.push(`**Match Score:** ${match.match_score}%\n`);
+    lines.push(`**Match Score:** ${matchScorePercent(match.match_score)}%\n`);
 
     lines.push(`| Field | Details |`);
     lines.push(`|-------|---------|`);
-    lines.push(`| **Title** | ${prof.title} |`);
-    lines.push(`| **Department** | ${prof.department} |`);
+    lines.push(`| **Title** | ${prof.title || "N/A"} |`);
+    lines.push(`| **Department** | ${prof.department || "N/A"} |`);
     lines.push(`| **University** | ${prof.university} |`);
     if (prof.email) {
       lines.push(`| **Email** | ${prof.email} |`);
     }
     if (prof.citation_metrics) {
-      lines.push(`| **h-index** | ${prof.citation_metrics.h_index} |`);
+      lines.push(`| **h-index** | ${prof.citation_metrics.h_index ?? "N/A"} |`);
       lines.push(
-        `| **Total Citations** | ${prof.citation_metrics.total_citations.toLocaleString()} |`
+        `| **Total Citations** | ${(prof.citation_metrics.total_citations ?? 0).toLocaleString()} |`
       );
     }
     lines.push(
@@ -61,7 +62,7 @@ export function exportToMarkdown(matches: MatchResult[]): string {
       lines.push(`### Relevant Publications`);
       match.relevant_publications.forEach((pub, i) => {
         const authors = pub.authors.join(", ");
-        const citation = `${authors}. "${pub.title}." *${pub.venue}*, ${pub.year}. (${pub.citation_count} citations)`;
+        const citation = `${authors}. "${pub.title}." *${pub.venue || "N/A"}*, ${pub.year ?? "n.d."}. (${pub.citation_count ?? 0} citations)`;
         const line = pub.url
           ? `${i + 1}. ${citation} [Link](${pub.url})`
           : `${i + 1}. ${citation}`;
@@ -93,9 +94,9 @@ const LATEX_ESCAPE_MAP: Record<string, string> = {
 
 const LATEX_SPECIAL_CHARS = /[\\&%$#_{}\~\^]/g;
 
-function escapeLatex(text: string): string {
-  // Single-pass replacement using a character map to avoid
-  // chained .replace() calls that can miss or double-escape characters
+function escapeLatex(text: string | null | undefined): string {
+  if (!text) return "";
+  // Single-pass map replacement avoids chained .replace() double-escaping.
   return text.replace(LATEX_SPECIAL_CHARS, (char) => LATEX_ESCAPE_MAP[char]);
 }
 
@@ -131,16 +132,13 @@ export function exportToLatex(matches: MatchResult[]): string {
     const prof = match.professor;
     const rank = index + 1;
 
+    const scorePct = matchScorePercent(match.match_score);
     const colorCmd =
-      match.match_score >= 80
-        ? "matchhigh"
-        : match.match_score >= 60
-          ? "matchmid"
-          : "matchlow";
+      scorePct >= 80 ? "matchhigh" : scorePct >= 60 ? "matchmid" : "matchlow";
 
     lines.push(`\\section{${rank}. ${escapeLatex(prof.name)}}`);
     lines.push(
-      `{\\large\\textbf{Match Score:} \\textcolor{${colorCmd}}{${match.match_score}\\%}}\n`
+      `{\\large\\textbf{Match Score:} \\textcolor{${colorCmd}}{${scorePct}\\%}}\n`
     );
 
     lines.push(`\\begin{tabularx}{\\textwidth}{lX}`);
@@ -159,10 +157,10 @@ export function exportToLatex(matches: MatchResult[]): string {
     }
     if (prof.citation_metrics) {
       lines.push(
-        `\\textbf{h-index} & ${prof.citation_metrics.h_index} \\\\`
+        `\\textbf{h-index} & ${prof.citation_metrics.h_index ?? "N/A"} \\\\`
       );
       lines.push(
-        `\\textbf{Total Citations} & ${prof.citation_metrics.total_citations.toLocaleString()} \\\\`
+        `\\textbf{Total Citations} & ${(prof.citation_metrics.total_citations ?? 0).toLocaleString()} \\\\`
       );
     }
     lines.push(
@@ -202,7 +200,7 @@ export function exportToLatex(matches: MatchResult[]): string {
         const authors = escapeLatex(pub.authors.join(", "));
         const title = escapeLatex(pub.title);
         const venue = escapeLatex(pub.venue);
-        let entry = `  \\item ${authors}. \\emph{${title}.} \\textit{${venue}}, ${pub.year}. (${pub.citation_count} citations)`;
+        let entry = `  \\item ${authors}. \\emph{${title}.} \\textit{${venue}}, ${pub.year ?? "n.d."}. (${pub.citation_count ?? 0} citations)`;
         if (pub.url) {
           entry += ` \\href{${pub.url}}{[Link]}`;
         }
@@ -254,15 +252,16 @@ export function exportToPDF(matches: MatchResult[]): void {
     doc.text(`${rank}. ${prof.name}`, 14, yPos);
     yPos += 7;
 
+    const scorePct = matchScorePercent(match.match_score);
     const [r, g, b] =
-      match.match_score >= 80
+      scorePct >= 80
         ? [22, 163, 74]
-        : match.match_score >= 60
+        : scorePct >= 60
           ? [202, 138, 4]
           : [220, 38, 38];
     doc.setFontSize(11);
     doc.setTextColor(r, g, b);
-    doc.text(`Match Score: ${match.match_score}%`, 14, yPos);
+    doc.text(`Match Score: ${scorePct}%`, 14, yPos);
     doc.setTextColor(0);
     yPos += 8;
 
@@ -271,16 +270,16 @@ export function exportToPDF(matches: MatchResult[]): void {
       startY: yPos,
       head: [],
       body: [
-        ["Title", prof.title],
-        ["Department", prof.department],
-        ["University", prof.university],
+        ["Title", prof.title || "N/A"],
+        ["Department", prof.department || "N/A"],
+        ["University", prof.university || "N/A"],
         ...(prof.email ? [["Email", prof.email]] : []),
         ...(prof.citation_metrics
           ? [
-              ["h-index", String(prof.citation_metrics.h_index)],
+              ["h-index", String(prof.citation_metrics.h_index ?? "N/A")],
               [
                 "Total Citations",
-                String(prof.citation_metrics.total_citations),
+                String(prof.citation_metrics.total_citations ?? 0),
               ],
             ]
           : []),
@@ -374,9 +373,9 @@ export function exportToPDF(matches: MatchResult[]): void {
           String(i + 1),
           pub.title,
           pub.authors.join(", "),
-          pub.venue,
-          String(pub.year),
-          String(pub.citation_count),
+          pub.venue || "",
+          String(pub.year ?? ""),
+          String(pub.citation_count ?? 0),
           "", // Empty cell - we'll draw the link in didDrawCell
         ]),
         theme: "striped",

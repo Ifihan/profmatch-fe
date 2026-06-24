@@ -3,7 +3,7 @@ import type {
   PromoCode,
   PromoCodeRedemptionResponse,
   User,
-  AuthResponse,
+  TokenResponse,
 } from "@/types";
 
 export const mockAdminUser: User = {
@@ -24,22 +24,22 @@ export const mockRegularUser: User = {
   search_credits: { balance: 3, next_free_credit_at: null },
 };
 
-export const mockAdminAuthResponse: AuthResponse = {
-  user: mockAdminUser,
+export const mockAdminAuthResponse: TokenResponse = {
   access_token: "mock-admin-token",
+  refresh_token: "mock-admin-refresh-token",
   token_type: "bearer",
 };
 
-export const mockRegularAuthResponse: AuthResponse = {
-  user: mockRegularUser,
+export const mockRegularAuthResponse: TokenResponse = {
   access_token: "mock-user-token",
+  refresh_token: "mock-user-refresh-token",
   token_type: "bearer",
 };
 
 export const mockAdminStats: AdminStats = {
   total_users: 287,
   total_searches: 1023,
-  active_users_last_30d: 142,
+  active_users: 142,
   paid_users: 34,
 };
 
@@ -48,43 +48,39 @@ export const mockPromoCodes: PromoCode[] = [
     id: "pc-1",
     code: "WELCOME10",
     credits: 10,
-    max_uses: 100,
-    use_count: 47,
-    is_active: true,
-    created_at: "2025-08-01T10:00:00Z",
+    max_redemptions: 100,
+    times_redeemed: 47,
+    is_disabled: false,
   },
   {
     id: "pc-2",
     code: "BETA5",
     credits: 5,
-    max_uses: 50,
-    use_count: 50,
-    is_active: true,
-    created_at: "2025-07-15T08:30:00Z",
+    max_redemptions: 50,
+    times_redeemed: 50,
+    is_disabled: false,
   },
   {
     id: "pc-3",
     code: "SUMMER20",
     credits: 20,
-    max_uses: 200,
-    use_count: 12,
-    is_active: false,
-    created_at: "2025-09-01T12:00:00Z",
+    max_redemptions: 200,
+    times_redeemed: 12,
+    is_disabled: true,
   },
   {
     id: "pc-4",
     code: "LAUNCH3",
     credits: 3,
-    max_uses: 500,
-    use_count: 189,
-    is_active: true,
-    created_at: "2025-10-10T09:00:00Z",
+    max_redemptions: null,
+    times_redeemed: 189,
+    is_disabled: false,
   },
 ];
 
 export const mockRedeemResponse: PromoCodeRedemptionResponse = {
   credits_granted: 10,
-  new_balance: 13,
+  balance: 13,
 };
 
 export function delay(ms = 500): Promise<void> {

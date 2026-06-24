@@ -1,10 +1,6 @@
 import type {
-  SessionResponse,
-  UploadResponse,
-  MatchStatus,
-  MatchResultsResponse,
-  ProfessorProfile,
-  AuthResponse,
+  JobStatusResponse,
+  TokenResponse,
   User,
   SearchHistorySummary,
   SearchHistoryDetail,
@@ -13,6 +9,7 @@ import type {
   PromoCode,
   PromoCodeRedemptionResponse,
   AdminStats,
+  AdminUser,
   CreatePromoCodePayload,
 } from "@/types";
 import {
@@ -25,6 +22,12 @@ import {
   mockRedeemResponse,
   delay,
 } from "@/lib/mock/adminMocks";
+import {
+  getAccessToken,
+  getRefreshToken,
+  setTokens,
+  clearTokens,
+} from "@/lib/tokens";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true";
@@ -39,19 +42,68 @@ class ApiError extends Error {
   }
 }
 
+// Single-flight refresh: concurrent 401s share one /refresh call.
+let refreshInFlight: Promise<string | null> | null = null;
+
+async function performRefresh(): Promise<string | null> {
+  const refresh = getRefreshToken();
+  if (!refresh) return null;
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refresh }),
+    });
+    if (!res.ok) {
+      clearTokens();
+      return null;
+    }
+    const data: TokenResponse = await res.json();
+    setTokens(data.access_token, data.refresh_token);
+    return data.access_token;
+  } catch {
+    return null;
+  }
+}
+
+// Renews the access token via the refresh token; null if it can't be refreshed.
+export function refreshSession(): Promise<string | null> {
+  if (!refreshInFlight) {
+    refreshInFlight = performRefresh().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
 async function fetchApi<T>(
   endpoint: string,
-  options?: RequestInit
+  options?: RequestInit,
+  retry = false
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
+  const access = getAccessToken();
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options?.headers as Record<string, string>),
+  };
+  // The stored token is the source of truth, so retries use the refreshed one.
+  if (access) headers.Authorization = `Bearer ${access}`;
 
   const response = await fetch(url, {
+    // Send/receive the session cookie that ties anonymous jobs to the caller.
+    credentials: "include",
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
+    headers,
   });
+
+  // Access token likely expired — refresh once and retry transparently.
+  if (response.status === 401 && !retry && getRefreshToken()) {
+    const newToken = await refreshSession();
+    if (newToken) return fetchApi<T>(endpoint, options, true);
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -68,22 +120,26 @@ function authHeaders(token: string): HeadersInit {
 // ── Auth endpoints ────────────────────────────────────────────────
 
 export async function signup(
+  name: string,
   email: string,
   password: string,
-  name: string,
-  sessionId?: string
-): Promise<AuthResponse> {
-  return fetchApi<AuthResponse>("/api/auth/signup", {
+  confirmPassword: string
+): Promise<TokenResponse> {
+  return fetchApi<TokenResponse>("/api/auth/signup", {
     method: "POST",
-    body: JSON.stringify({ email, password, name, session_id: sessionId }),
+    body: JSON.stringify({
+      name,
+      email,
+      password,
+      confirm_password: confirmPassword,
+    }),
   });
 }
 
 export async function login(
   email: string,
-  password: string,
-  sessionId?: string
-): Promise<AuthResponse> {
+  password: string
+): Promise<TokenResponse> {
   if (USE_MOCK) {
     await delay(300);
     if (email === "admin@test.com") {
@@ -91,9 +147,16 @@ export async function login(
     }
     return mockRegularAuthResponse;
   }
-  return fetchApi<AuthResponse>("/api/auth/login", {
+  return fetchApi<TokenResponse>("/api/auth/login", {
     method: "POST",
-    body: JSON.stringify({ email, password, session_id: sessionId }),
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+export async function refreshToken(token: string): Promise<TokenResponse> {
+  return fetchApi<TokenResponse>("/api/auth/refresh", {
+    method: "POST",
+    body: JSON.stringify({ refresh_token: token }),
   });
 }
 
@@ -156,35 +219,24 @@ export async function healthCheck(): Promise<{ status: string }> {
   return fetchApi<{ status: string }>("/health");
 }
 
-// Session endpoints
-export async function createSession(token?: string): Promise<SessionResponse> {
-  return fetchApi<SessionResponse>("/api/session", {
-    method: "POST",
-    ...(token ? { headers: authHeaders(token) } : {}),
-  });
-}
+// ── Match endpoints ───────────────────────────────────────────────
 
-export async function getSession(sessionId: string): Promise<SessionResponse> {
-  return fetchApi<SessionResponse>(`/api/session/${sessionId}`);
-}
-
-export async function deleteSession(sessionId: string): Promise<void> {
-  await fetchApi(`/api/session/${sessionId}`, {
-    method: "DELETE",
-  });
-}
-
-// Upload endpoints
-export async function uploadFile(
-  sessionId: string,
-  file: File,
+// Submits a match job (CV uploaded inline); auth is optional.
+export async function createMatch(
+  universityUrl: string,
+  researchInterests: string,
+  cv: File,
+  token?: string,
   onProgress?: (progress: number) => void
-): Promise<UploadResponse> {
+): Promise<JobStatusResponse> {
   const formData = new FormData();
-  formData.append("file", file);
-  formData.append("session_id", sessionId);
+  formData.append("university_url", universityUrl);
+  formData.append("research_interests", researchInterests);
+  formData.append("cv", cv);
 
   const xhr = new XMLHttpRequest();
+  // Send/receive the session cookie that ties anonymous jobs to the caller.
+  xhr.withCredentials = true;
 
   return new Promise((resolve, reject) => {
     xhr.upload.addEventListener("progress", (event) => {
@@ -198,7 +250,7 @@ export async function uploadFile(
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve(JSON.parse(xhr.responseText));
       } else {
-        reject(new ApiError(xhr.status, xhr.statusText));
+        reject(new ApiError(xhr.status, xhr.responseText || xhr.statusText));
       }
     });
 
@@ -206,54 +258,33 @@ export async function uploadFile(
       reject(new ApiError(0, "Network error"));
     });
 
-    xhr.open("POST", `${API_BASE_URL}/api/upload`);
+    xhr.open("POST", `${API_BASE_URL}/api/matches`);
+    if (token) {
+      xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    }
     xhr.send(formData);
   });
 }
 
-// Match endpoints
-export async function startMatch(
-  sessionId: string,
-  university: string,
-  researchInterests: string[],
-  fileIds: string[],
+export async function getMatch(
+  jobId: string,
   token?: string
-): Promise<{ match_id: string }> {
-  return fetchApi<{ match_id: string }>("/api/match", {
-    method: "POST",
-    body: JSON.stringify({
-      session_id: sessionId,
-      university,
-      research_interests: researchInterests,
-      file_ids: fileIds,
-    }),
-    ...(token ? { headers: authHeaders(token) } : {}),
+): Promise<JobStatusResponse> {
+  return fetchApi<JobStatusResponse>(`/api/matches/${jobId}`, {
+    headers: token ? authHeaders(token) : undefined,
   });
 }
 
-export async function getMatchStatus(
-  matchId: string,
-  sessionId: string
-): Promise<MatchStatus> {
-  return fetchApi<MatchStatus>(
-    `/api/match/${matchId}/status?session_id=${sessionId}`
-  );
-}
-
-export async function getMatchResults(
-  matchId: string,
-  sessionId: string
-): Promise<MatchResultsResponse> {
-  return fetchApi<MatchResultsResponse>(
-    `/api/match/${matchId}/results?session_id=${sessionId}`
-  );
-}
-
-// Professor endpoints
-export async function getProfessor(
-  professorId: string
-): Promise<ProfessorProfile> {
-  return fetchApi<ProfessorProfile>(`/api/professor/${professorId}`);
+// Opens an SSE stream of JobStatusResponse events (token via query param; cookie for anon).
+export function createMatchEventSource(
+  jobId: string,
+  token?: string
+): EventSource {
+  const url = `${API_BASE_URL}/api/matches/${jobId}/events`;
+  if (token) {
+    return new EventSource(`${url}?token=${encodeURIComponent(token)}`);
+  }
+  return new EventSource(url, { withCredentials: true });
 }
 
 // ── Promo code endpoints ──────────────────────────────────────────
@@ -266,7 +297,7 @@ export async function redeemPromoCode(
     await delay(500);
     return mockRedeemResponse;
   }
-  return fetchApi<PromoCodeRedemptionResponse>("/api/credits/redeem", {
+  return fetchApi<PromoCodeRedemptionResponse>("/api/promo/redeem", {
     method: "POST",
     body: JSON.stringify({ code }),
     headers: authHeaders(token),
@@ -280,7 +311,7 @@ export async function getAdminStats(token: string): Promise<AdminStats> {
     await delay(400);
     return mockAdminStats;
   }
-  return fetchApi<AdminStats>("/api/admin/stats", {
+  return fetchApi<AdminStats>("/api/admin/metrics", {
     headers: authHeaders(token),
   });
 }
@@ -290,50 +321,64 @@ export async function getAdminPromoCodes(token: string): Promise<PromoCode[]> {
     await delay(400);
     return mockPromoCodes;
   }
-  const data = await fetchApi<{ promo_codes: PromoCode[] }>("/api/admin/promo-codes", {
-    headers: authHeaders(token),
-  });
-  return data.promo_codes;
+  const data = await fetchApi<{ promos: PromoCode[] } | PromoCode[]>(
+    "/api/admin/promo",
+    { headers: authHeaders(token) }
+  );
+  return Array.isArray(data) ? data : data.promos;
 }
 
+// Responds with only { id, code }; the caller reconstructs the full row from the payload.
 export async function createPromoCode(
   token: string,
   payload: CreatePromoCodePayload
-): Promise<PromoCode> {
+): Promise<{ id: string; code: string }> {
   if (USE_MOCK) {
     await delay(500);
-    return {
-      id: `pc-${Date.now()}`,
-      code: payload.code,
-      credits: payload.credits,
-      max_uses: payload.max_uses,
-      use_count: 0,
-      is_active: true,
-      created_at: new Date().toISOString(),
-    };
+    return { id: `pc-${Date.now()}`, code: payload.code };
   }
-  return fetchApi<PromoCode>("/api/admin/promo-codes", {
+  return fetchApi<{ id: string; code: string }>("/api/admin/promo", {
     method: "POST",
     body: JSON.stringify(payload),
     headers: authHeaders(token),
   });
 }
 
+export async function disablePromoCode(
+  token: string,
+  id: string
+): Promise<void> {
+  if (USE_MOCK) {
+    await delay(300);
+    return;
+  }
+  await fetchApi(`/api/admin/promo/${id}/disable`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+  });
+}
+
+export async function enablePromoCode(
+  token: string,
+  id: string
+): Promise<void> {
+  if (USE_MOCK) {
+    await delay(300);
+    return;
+  }
+  await fetchApi(`/api/admin/promo/${id}/enable`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+  });
+}
+
+// Convenience wrapper that routes to the enable/disable endpoint.
 export async function togglePromoCode(
   token: string,
   id: string,
   isActive: boolean
-): Promise<PromoCode> {
-  if (USE_MOCK) {
-    await delay(300);
-    const code = mockPromoCodes.find((c) => c.id === id);
-    return { ...(code ?? mockPromoCodes[0]), is_active: isActive };
-  }
-  return fetchApi<PromoCode>(`/api/admin/promo-codes/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify({ is_active: isActive }),
-    headers: authHeaders(token),
-  });
+): Promise<void> {
+  return isActive ? enablePromoCode(token, id) : disablePromoCode(token, id);
 }
 
 export async function deletePromoCode(
@@ -344,7 +389,50 @@ export async function deletePromoCode(
     await delay(300);
     return;
   }
-  await fetchApi(`/api/admin/promo-codes/${id}`, {
+  await fetchApi(`/api/admin/promo/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+}
+
+// ── Admin user management ─────────────────────────────────────────
+
+export async function listUsers(
+  token: string,
+  limit = 50,
+  offset = 0
+): Promise<AdminUser[]> {
+  const data = await fetchApi<{ users: AdminUser[] } | AdminUser[]>(
+    `/api/admin/users?limit=${limit}&offset=${offset}`,
+    { headers: authHeaders(token) }
+  );
+  return Array.isArray(data) ? data : data.users;
+}
+
+export async function getUser(
+  token: string,
+  userId: string
+): Promise<AdminUser> {
+  return fetchApi<AdminUser>(`/api/admin/users/${userId}`, {
+    headers: authHeaders(token),
+  });
+}
+
+export async function disableUser(
+  token: string,
+  userId: string
+): Promise<void> {
+  await fetchApi(`/api/admin/users/${userId}/disable`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+  });
+}
+
+export async function deleteUser(
+  token: string,
+  userId: string
+): Promise<void> {
+  await fetchApi(`/api/admin/users/${userId}`, {
     method: "DELETE",
     headers: authHeaders(token),
   });

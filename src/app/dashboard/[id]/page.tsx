@@ -93,6 +93,12 @@ export default function SavedSearchDetailPage() {
     }
   };
 
+  const results = search.result?.matches ?? [];
+  const interests = (search.research_interests ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
   return (
     <PageLayout>
       <Container className="py-12">
@@ -121,11 +127,11 @@ export default function SavedSearchDetailPage() {
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="mb-2 text-2xl font-semibold text-text-primary md:text-3xl">
-              {getUniversityName(search.university)}
+              {getUniversityName(search.university_url)}
             </h1>
             <p className="text-text-secondary">
-              {search.results.length} match
-              {search.results.length !== 1 ? "es" : ""}
+              {results.length} match
+              {results.length !== 1 ? "es" : ""}
             </p>
           </div>
 
@@ -133,7 +139,7 @@ export default function SavedSearchDetailPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => exportResults(search.results, "markdown")}
+              onClick={() => exportResults(results, "markdown")}
             >
               <svg
                 className="mr-1 h-4 w-4"
@@ -153,7 +159,7 @@ export default function SavedSearchDetailPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => exportResults(search.results, "latex")}
+              onClick={() => exportResults(results, "latex")}
             >
               <svg
                 className="mr-1 h-4 w-4"
@@ -173,7 +179,7 @@ export default function SavedSearchDetailPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => exportResults(search.results, "pdf")}
+              onClick={() => exportResults(results, "pdf")}
             >
               <svg
                 className="mr-1 h-4 w-4"
@@ -202,7 +208,7 @@ export default function SavedSearchDetailPage() {
             <div>
               <p className="mb-1 text-xs text-text-muted">University</p>
               <p className="text-sm text-text-primary">
-                {getUniversityName(search.university)}
+                {getUniversityName(search.university_url)}
               </p>
             </div>
             <div>
@@ -216,11 +222,11 @@ export default function SavedSearchDetailPage() {
               </p>
             </div>
           </div>
-          {search.research_interests.length > 0 && (
+          {interests.length > 0 && (
             <div className="mt-4">
               <p className="mb-2 text-xs text-text-muted">Research Interests</p>
               <div className="flex flex-wrap gap-2">
-                {search.research_interests.map((interest, index) => (
+                {interests.map((interest, index) => (
                   <span
                     key={index}
                     className="inline-flex items-center rounded-md bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"
@@ -234,13 +240,13 @@ export default function SavedSearchDetailPage() {
         </div>
 
         {/* Results grid */}
-        {search.results.length === 0 ? (
+        {results.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-16">
             <p className="text-text-secondary">No matches found in this search.</p>
           </div>
         ) : (
           <div className="grid gap-6 lg:grid-cols-2">
-            {search.results.map((match) => (
+            {results.map((match) => (
               <ProfessorCard
                 key={match.professor.id}
                 match={match}

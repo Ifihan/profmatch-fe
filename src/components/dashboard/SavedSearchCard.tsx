@@ -25,6 +25,11 @@ export function SavedSearchCard({ search, onView }: SavedSearchCardProps) {
     }
   };
 
+  const interests = search.research_interests
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
   return (
     <article
       className={cn(
@@ -36,7 +41,7 @@ export function SavedSearchCard({ search, onView }: SavedSearchCardProps) {
       <div className="mb-4 flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <h3 className="mb-1 truncate text-lg font-semibold text-text-primary">
-            {getUniversityName(search.university)}
+            {getUniversityName(search.university_url)}
           </h3>
         </div>
         <span
@@ -45,17 +50,17 @@ export function SavedSearchCard({ search, onView }: SavedSearchCardProps) {
             "bg-accent/10 text-xs font-medium text-accent"
           )}
         >
-          {search.result_count} match{search.result_count !== 1 ? "es" : ""}
+          {search.match_count} match{search.match_count !== 1 ? "es" : ""}
         </span>
       </div>
 
-      {search.research_interests.length > 0 && (
+      {interests.length > 0 && (
         <div className="mb-4">
           <p className="mb-2 text-xs font-medium uppercase tracking-wide text-text-muted">
             Research Interests
           </p>
           <div className="flex flex-wrap gap-1.5">
-            {search.research_interests.slice(0, 3).map((interest, index) => (
+            {interests.slice(0, 3).map((interest, index) => (
               <span
                 key={index}
                 className={cn(
@@ -66,9 +71,9 @@ export function SavedSearchCard({ search, onView }: SavedSearchCardProps) {
                 {interest}
               </span>
             ))}
-            {search.research_interests.length > 3 && (
+            {interests.length > 3 && (
               <span className="text-xs text-text-muted">
-                +{search.research_interests.length - 3} more
+                +{interests.length - 3} more
               </span>
             )}
           </div>

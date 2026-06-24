@@ -6,14 +6,17 @@ import {
   useState,
   useCallback,
   useEffect,
+  useRef,
   type ReactNode,
 } from "react";
-import type { User, AuthState } from "@/types";
+import type { AuthState } from "@/types";
+import { login as apiLogin, signup as apiSignup, getMe, refreshSession } from "@/lib/api";
 import {
-  login as apiLogin,
-  signup as apiSignup,
-  getMe,
-} from "@/lib/api";
+  getAccessToken,
+  setTokens,
+  clearTokens,
+  getTokenExpiry,
+} from "@/lib/tokens";
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<void>;
@@ -23,12 +26,9 @@ interface AuthContextType extends AuthState {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const TOKEN_KEY = "profmatch_token";
-
-function getStoredToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(TOKEN_KEY);
-}
+// Renew this many ms before the access token's expiry.
+const REFRESH_LEEWAY_MS = 60_000;
+const DEFAULT_REFRESH_MS = 13 * 60_000;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({
@@ -38,9 +38,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoading: true,
   });
 
-  // Restore session from stored token on mount
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Mutable ref to logout so scheduleRefresh can call it without a dep cycle.
+  const logoutRef = useRef<() => void>(() => {});
+
+  // Schedules a silent token renewal shortly before the access token expires.
+  const scheduleRefresh = useCallback((accessToken: string) => {
+    if (refreshTimer.current) clearTimeout(refreshTimer.current);
+    const exp = getTokenExpiry(accessToken);
+    const delay = exp
+      ? Math.max(exp - Date.now() - REFRESH_LEEWAY_MS, 0)
+      : DEFAULT_REFRESH_MS;
+    refreshTimer.current = setTimeout(async () => {
+      const newToken = await refreshSession();
+      if (newToken) {
+        setState((s) => ({ ...s, token: newToken }));
+        scheduleRefresh(newToken);
+      } else {
+        logoutRef.current();
+      }
+    }, delay);
+  }, []);
+
+  const logout = useCallback(() => {
+    if (refreshTimer.current) clearTimeout(refreshTimer.current);
+    clearTokens();
+    setState({ user: null, token: null, isAuthenticated: false, isLoading: false });
+  }, []);
+  logoutRef.current = logout;
+
+  // Restore session on mount (getMe transparently refreshes an expired token).
   useEffect(() => {
-    const token = getStoredToken();
+    const token = getAccessToken();
     if (!token) {
       setState({ user: null, token: null, isAuthenticated: false, isLoading: false });
       return;
@@ -48,61 +77,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     getMe(token)
       .then((user) => {
-        setState({ user, token, isAuthenticated: true, isLoading: false });
+        const current = getAccessToken() ?? token;
+        setState({ user, token: current, isAuthenticated: true, isLoading: false });
+        scheduleRefresh(current);
       })
       .catch(() => {
-        localStorage.removeItem(TOKEN_KEY);
+        clearTokens();
         setState({ user: null, token: null, isAuthenticated: false, isLoading: false });
       });
-  }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const sessionId = (() => {
-      try {
-        const data = sessionStorage.getItem("matchData");
-        return data ? JSON.parse(data).sessionId : undefined;
-      } catch {
-        return undefined;
-      }
-    })();
+    return () => {
+      if (refreshTimer.current) clearTimeout(refreshTimer.current);
+    };
+  }, [scheduleRefresh]);
 
-    const res = await apiLogin(email, password, sessionId);
-    localStorage.setItem(TOKEN_KEY, res.access_token);
-    setState({
-      user: res.user,
-      token: res.access_token,
-      isAuthenticated: true,
-      isLoading: false,
-    });
-  }, []);
-
-  const register = useCallback(
-    async (name: string, email: string, password: string) => {
-      const sessionId = (() => {
-        try {
-          const data = sessionStorage.getItem("matchData");
-          return data ? JSON.parse(data).sessionId : undefined;
-        } catch {
-          return undefined;
-        }
-      })();
-
-      const res = await apiSignup(email, password, name, sessionId);
-      localStorage.setItem(TOKEN_KEY, res.access_token);
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const res = await apiLogin(email, password);
+      setTokens(res.access_token, res.refresh_token);
+      const user = await getMe(res.access_token);
       setState({
-        user: res.user,
+        user,
         token: res.access_token,
         isAuthenticated: true,
         isLoading: false,
       });
+      scheduleRefresh(res.access_token);
     },
-    []
+    [scheduleRefresh]
   );
 
-  const logout = useCallback(() => {
-    localStorage.removeItem(TOKEN_KEY);
-    setState({ user: null, token: null, isAuthenticated: false, isLoading: false });
-  }, []);
+  const register = useCallback(
+    async (name: string, email: string, password: string) => {
+      // The confirm field is validated for equality in the form before submit.
+      const res = await apiSignup(name, email, password, password);
+      setTokens(res.access_token, res.refresh_token);
+      const user = await getMe(res.access_token);
+      setState({
+        user,
+        token: res.access_token,
+        isAuthenticated: true,
+        isLoading: false,
+      });
+      scheduleRefresh(res.access_token);
+    },
+    [scheduleRefresh]
+  );
 
   return (
     <AuthContext.Provider

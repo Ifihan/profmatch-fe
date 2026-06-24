@@ -64,10 +64,11 @@ export function PromoCodeTable({
   return (
     <div className="space-y-3">
       {codes.map((code) => {
-        const isFull = code.use_count >= code.max_uses;
-        const usagePercent = Math.round(
-          (code.use_count / code.max_uses) * 100
-        );
+        const cap = code.max_redemptions; // null = unlimited
+        const used = code.times_redeemed;
+        const isActive = !code.is_disabled;
+        const isFull = cap != null && used >= cap;
+        const usagePercent = cap ? Math.round((used / cap) * 100) : 0;
 
         return (
           <div
@@ -81,17 +82,22 @@ export function PromoCodeTable({
                 </span>
                 <span
                   className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                    code.is_active && !isFull
+                    isActive && !isFull
                       ? "bg-success/10 text-success"
                       : "bg-error/10 text-error"
                   }`}
                 >
-                  {!code.is_active ? "Disabled" : isFull ? "Fully Redeemed" : "Active"}
+                  {code.is_disabled
+                    ? "Disabled"
+                    : isFull
+                      ? "Fully Redeemed"
+                      : "Active"}
                 </span>
               </div>
               <p className="text-sm text-text-secondary">
-                {code.credits} credits &middot;{" "}
-                {code.use_count}/{code.max_uses} used ({usagePercent}%)
+                {code.credits} credits &middot; {used}
+                {cap != null ? ` / ${cap}` : ""} used
+                {cap != null ? ` (${usagePercent}%)` : ""}
               </p>
             </div>
 
@@ -99,9 +105,9 @@ export function PromoCodeTable({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => onToggle(code.id, !code.is_active)}
+                onClick={() => onToggle(code.id, code.is_disabled)}
               >
-                {code.is_active ? "Disable" : "Enable"}
+                {code.is_disabled ? "Enable" : "Disable"}
               </Button>
               <Button
                 variant="outline"

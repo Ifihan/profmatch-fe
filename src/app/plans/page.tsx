@@ -24,7 +24,10 @@ export default function PlansPage() {
     getCreditPlans()
       .then((data) => {
         setPlans(data.plans);
-        setMessage(data.message);
+        setMessage(
+          data.message ??
+            (data.available ? "" : "Credit purchases coming soon!")
+        );
       })
       .catch(() => {
         setPlans([
@@ -168,7 +171,7 @@ export default function PlansPage() {
                       try {
                         const result = await redeemPromoCode(token, promoCode.trim());
                         setPromoSuccess(
-                          `${result.credits_granted} credits added! New balance: ${result.new_balance}`
+                          `${result.credits_granted} credits added! New balance: ${result.balance}`
                         );
                         setPromoCode("");
                         refreshCredits();
